@@ -1,131 +1,170 @@
-import React, { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { useOrder } from '../context/OrderContext';
-import SafeIcon from '../common/SafeIcon';
-import * as FiIcons from 'react-icons/fi';
+import React, { useState, useRef } from 'react'
+import { motion } from 'framer-motion'
+import { useOrder } from '../context/OrderContext'
+import { useFileUpload } from '../hooks/useFileUpload'
+import { fileUploadSchema } from '../lib/validations'
+import SafeIcon from '../common/SafeIcon'
+import * as FiIcons from 'react-icons/fi'
+import toast from 'react-hot-toast'
 
-const { FiUpload, FiFile, FiClock, FiDollarSign } = FiIcons;
+const { FiUpload, FiFile, FiClock, FiDollarSign, FiX } = FiIcons
 
 function AudioUpload() {
-  const { state, dispatch } = useOrder();
-  const [isDragging, setIsDragging] = useState(false);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const fileInputRef = useRef(null);
+  const { state, dispatch } = useOrder()
+  const { uploadFile, uploading, progress } = useFileUpload()
+  const [isDragging, setIsDragging] = useState(false)
+  const [isCalculating, setIsCalculating] = useState(false)
+  const fileInputRef = useRef(null)
 
   const calculateDuration = (file) => {
     return new Promise((resolve, reject) => {
-      setIsCalculating(true);
+      setIsCalculating(true)
       
-      // Create object URL for the file
-      const objectUrl = URL.createObjectURL(file);
-      
-      // Create audio element
-      const audio = document.createElement('audio');
-      audio.preload = 'metadata';
-      
-      // Set up event listeners
-      audio.addEventListener('loadedmetadata', () => {
-        const duration = audio.duration;
-        URL.revokeObjectURL(objectUrl); // Clean up
-        setIsCalculating(false);
+      try {
+        const objectUrl = URL.createObjectURL(file)
+        const audio = document.createElement('audio')
+        audio.preload = 'metadata'
         
-        if (duration && !isNaN(duration)) {
-          resolve(duration);
-        } else {
-          reject(new Error('Could not determine audio duration'));
+        const cleanup = () => {
+          URL.revokeObjectURL(objectUrl)
+          setIsCalculating(false)
         }
-      });
-      
-      audio.addEventListener('error', () => {
-        URL.revokeObjectURL(objectUrl);
-        setIsCalculating(false);
-        reject(new Error('Error loading audio file'));
-      });
-      
-      // Set source and load
-      audio.src = objectUrl;
-    });
-  };
+        
+        audio.addEventListener('loadedmetadata', () => {
+          const duration = audio.duration
+          cleanup()
+          
+          if (duration && !isNaN(duration) && duration > 0) {
+            resolve(duration)
+          } else {
+            reject(new Error('Could not determine audio duration'))
+          }
+        })
+        
+        audio.addEventListener('error', () => {
+          cleanup()
+          reject(new Error('Error loading audio file'))
+        })
+        
+        // Set a timeout for very large files
+        setTimeout(() => {
+          cleanup()
+          reject(new Error('File processing timeout'))
+        }, 10000)
+        
+        audio.src = objectUrl
+      } catch (error) {
+        setIsCalculating(false)
+        reject(error)
+      }
+    })
+  }
+
+  const validateFile = (file) => {
+    try {
+      fileUploadSchema.parse({ file })
+      return { valid: true }
+    } catch (error) {
+      return { 
+        valid: false, 
+        error: error.errors[0]?.message || 'Invalid file' 
+      }
+    }
+  }
 
   const handleFileSelect = async (file) => {
-    if (!file) return;
+    if (!file) return
 
-    // Validate file type
-    const allowedTypes = ['audio/mp3', 'audio/wav', 'audio/m4a', 'audio/aac', 'audio/ogg'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please select a valid audio file (MP3, WAV, M4A, AAC, or OGG)');
-      return;
-    }
-
-    // Validate file size (max 500MB)
-    const maxSize = 500 * 1024 * 1024; // 500MB
-    if (file.size > maxSize) {
-      alert('File size must be less than 500MB');
-      return;
+    // Validate file
+    const validation = validateFile(file)
+    if (!validation.valid) {
+      toast.error(validation.error)
+      return
     }
 
     try {
-      const duration = await calculateDuration(file);
-      const durationMinutes = Math.ceil(duration / 60); // Round up to nearest minute
-      const price = durationMinutes * state.selectedPlan.price;
-
-      dispatch({ type: 'SET_AUDIO_FILE', payload: file });
-      dispatch({ type: 'SET_AUDIO_DURATION', payload: durationMinutes });
-      dispatch({ type: 'SET_TOTAL_PRICE', payload: price });
+      // Calculate duration
+      const duration = await calculateDuration(file)
+      const durationMinutes = Math.ceil(duration / 60)
+      
+      // Store file temporarily (will upload later during order submission)
+      dispatch({ type: 'SET_AUDIO_FILE', payload: file })
+      dispatch({ type: 'SET_AUDIO_DURATION', payload: durationMinutes })
+      
+      toast.success('Audio file processed successfully!')
     } catch (error) {
-      console.error('Error calculating duration:', error);
-      alert('Error processing audio file. Please try again.');
+      console.error('Error processing audio file:', error)
+      toast.error(error.message || 'Error processing audio file. Please try again.')
     }
-  };
+  }
+
+  const removeFile = () => {
+    dispatch({ type: 'SET_AUDIO_FILE', payload: null })
+    dispatch({ type: 'SET_AUDIO_DURATION', payload: 0 })
+    dispatch({ type: 'SET_TOTAL_PRICE', payload: 0 })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
 
   const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
+    e.preventDefault()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileSelect(files[0])
     }
-  };
+  }
 
   const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
+    e.preventDefault()
+    setIsDragging(true)
+  }
 
   const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
+    e.preventDefault()
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragging(false)
+    }
+  }
 
   const handleFileInputChange = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files)
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileSelect(files[0])
     }
-  };
+  }
 
   const formatDuration = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
     if (hours > 0) {
-      return `${hours}h ${mins}m`;
+      return `${hours}h ${mins}m`
     }
-    return `${mins}m`;
-  };
+    return `${mins}m`
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Your Audio File</h2>
         <p className="text-gray-600">
-          Select an audio file to get started. We support MP3, WAV, M4A, AAC, and OGG formats.
+          Select an audio file to get started. We support MP3, WAV, M4A, AAC, and OGG formats up to 500MB.
         </p>
       </div>
 
       {/* File Upload Area */}
       <motion.div
         className={`
-          border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200
+          border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 relative
           ${isDragging 
             ? 'border-primary-400 bg-primary-50' 
             : state.audioFile 
@@ -144,6 +183,7 @@ function AudioUpload() {
           accept="audio/*"
           onChange={handleFileInputChange}
           className="hidden"
+          disabled={isCalculating || uploading}
         />
 
         {isCalculating ? (
@@ -157,15 +197,27 @@ function AudioUpload() {
             <div>
               <p className="font-semibold text-gray-900">{state.audioFile.name}</p>
               <p className="text-sm text-gray-600">
-                {(state.audioFile.size / (1024 * 1024)).toFixed(2)} MB
+                {formatFileSize(state.audioFile.size)} • {formatDuration(state.audioDuration)}
               </p>
             </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="text-primary-600 hover:text-primary-700 font-medium"
-            >
-              Choose different file
-            </button>
+            
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+                disabled={uploading}
+              >
+                Choose different file
+              </button>
+              <button
+                onClick={removeFile}
+                className="text-red-600 hover:text-red-700 font-medium flex items-center space-x-1"
+                disabled={uploading}
+              >
+                <SafeIcon icon={FiX} className="text-sm" />
+                <span>Remove</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -175,12 +227,13 @@ function AudioUpload() {
                 Drop your audio file here, or click to browse
               </p>
               <p className="text-sm text-gray-600">
-                Maximum file size: 500MB
+                Supported formats: MP3, WAV, M4A, AAC, OGG • Maximum size: 500MB
               </p>
             </div>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
+              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 disabled:bg-gray-400"
+              disabled={isCalculating || uploading}
             >
               Select File
             </button>
@@ -189,7 +242,7 @@ function AudioUpload() {
       </motion.div>
 
       {/* Price Calculation */}
-      {state.audioFile && state.audioDuration > 0 && (
+      {state.audioFile && state.audioDuration > 0 && state.selectedPlan && (
         <motion.div 
           className="bg-blue-50 border border-blue-200 rounded-xl p-6"
           initial={{ opacity: 0, y: 20 }}
@@ -215,17 +268,40 @@ function AudioUpload() {
             <div className="flex items-center space-x-2">
               <SafeIcon icon={FiDollarSign} className="text-green-500" />
               <div>
-                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-sm text-gray-600">Base Total</p>
                 <p className="text-xl font-bold text-green-600">
-                  ${state.totalPrice.toFixed(2)}
+                  ${(state.audioDuration * state.selectedPlan.price).toFixed(2)}
                 </p>
               </div>
             </div>
           </div>
         </motion.div>
       )}
+
+      {/* Upload Progress (if uploading) */}
+      {uploading && (
+        <motion.div 
+          className="bg-yellow-50 border border-yellow-200 rounded-xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-gray-700">Uploading file...</span>
+            <span className="text-sm font-medium text-gray-700">{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <motion.div 
+              className="bg-primary-500 h-2 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </motion.div>
+      )}
     </div>
-  );
+  )
 }
 
-export default AudioUpload;
+export default AudioUpload
