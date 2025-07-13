@@ -1,81 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useOrder } from '../context/OrderContext';
-import AudioUpload from '../components/AudioUpload';
-import CustomerForm from '../components/CustomerForm';
-import AddOnSelector from '../components/AddOnSelector';
-import OrderSummary from '../components/OrderSummary';
+import React, { useState, useEffect, useMemo } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { useOrder } from '../context/OrderContext'
+import AudioUpload from '../components/AudioUpload'
+import CustomerForm from '../components/CustomerForm'
+import AddOnSelector from '../components/AddOnSelector'
+import OrderSummary from '../components/OrderSummary'
 
 const plans = {
-  student: { name: 'Student', price: 0.25, color: 'blue' },
-  basic: { name: 'Basic', price: 0.50, color: 'green' },
-  business: { name: 'Business', price: 0.75, color: 'purple' }
-};
+  student: {
+    name: 'Student',
+    price: 0.25,
+    color: 'blue'
+  },
+  basic: {
+    name: 'Basic', 
+    price: 0.50,
+    color: 'green'
+  },
+  business: {
+    name: 'Business',
+    price: 0.75,
+    color: 'purple'
+  }
+}
 
-function OrderPage() {
-  const { plan: planId } = useParams();
-  const navigate = useNavigate();
-  const { state, dispatch } = useOrder();
-  const [currentStep, setCurrentStep] = useState(1);
+const OrderPage = React.memo(() => {
+  const { plan: planId } = useParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { state, dispatch } = useOrder()
+  const [currentStep, setCurrentStep] = useState(1)
+  
+  const isGuest = searchParams.get('guest') === 'true'
+  const plan = plans[planId]
 
-  const plan = plans[planId];
-
-  useEffect(() => {
-    if (!plan) {
-      navigate('/');
-      return;
-    }
-    dispatch({ type: 'SET_PLAN', payload: { ...plan, id: planId } });
-  }, [planId, plan, dispatch, navigate]);
-
-  const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      navigate('/payment');
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    } else {
-      navigate('/');
-    }
-  };
-
-  const isStepComplete = (step) => {
-    switch (step) {
-      case 1: return state.audioFile && state.audioDuration > 0;
-      case 2: return state.customerInfo.name && state.customerInfo.email;
-      case 3: return true; // Add-ons are optional
-      case 4: return true;
-      default: return false;
-    }
-  };
-
-  if (!plan) return null;
-
-  const steps = [
+  // Memoize steps configuration
+  const steps = useMemo(() => [
     { number: 1, title: 'Upload Audio', component: AudioUpload },
     { number: 2, title: 'Your Information', component: CustomerForm },
     { number: 3, title: 'Add-ons', component: AddOnSelector },
     { number: 4, title: 'Review Order', component: OrderSummary }
-  ];
+  ], [])
 
-  const CurrentComponent = steps[currentStep - 1].component;
+  useEffect(() => {
+    if (!plan) {
+      navigate('/')
+      return
+    }
+
+    dispatch({
+      type: 'SET_PLAN',
+      payload: { ...plan, id: planId }
+    })
+
+    // Set guest mode in context
+    dispatch({
+      type: 'SET_GUEST_MODE',
+      payload: isGuest
+    })
+  }, [planId, plan, dispatch, navigate, isGuest])
+
+  const handleNext = () => {
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1)
+    } else {
+      navigate('/payment')
+    }
+  }
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    } else {
+      navigate('/')
+    }
+  }
+
+  const isStepComplete = (step) => {
+    switch (step) {
+      case 1:
+        return state.audioFile && state.audioDuration > 0
+      case 2:
+        return state.customerInfo.name && state.customerInfo.email
+      case 3:
+        return true // Add-ons are optional
+      case 4:
+        return true
+      default:
+        return false
+    }
+  }
+
+  if (!plan) return null
+
+  const CurrentComponent = steps[currentStep - 1].component
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <motion.div 
+      <motion.div
         className="mb-8"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
       >
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {plan.name} Plan Order
+          {plan.name} Plan Order {isGuest && '(Guest)'}
         </h1>
         <p className="text-gray-600">
           Complete your order in {steps.length} simple steps
@@ -89,8 +119,8 @@ function OrderPage() {
             <div key={step.number} className="flex items-center">
               <div className={`
                 flex items-center justify-center w-10 h-10 rounded-full border-2 font-semibold text-sm
-                ${currentStep >= step.number 
-                  ? 'bg-primary-500 border-primary-500 text-white' 
+                ${currentStep >= step.number
+                  ? 'bg-primary-500 border-primary-500 text-white'
                   : isStepComplete(step.number)
                     ? 'bg-green-500 border-green-500 text-white'
                     : 'border-gray-300 text-gray-500'
@@ -114,7 +144,7 @@ function OrderPage() {
       </div>
 
       {/* Step Content */}
-      <motion.div 
+      <motion.div
         key={currentStep}
         className="bg-white rounded-2xl shadow-lg p-8 mb-8"
         initial={{ opacity: 0, x: 20 }}
@@ -150,7 +180,9 @@ function OrderPage() {
         </motion.button>
       </div>
     </div>
-  );
-}
+  )
+})
 
-export default OrderPage;
+OrderPage.displayName = 'OrderPage'
+
+export default OrderPage

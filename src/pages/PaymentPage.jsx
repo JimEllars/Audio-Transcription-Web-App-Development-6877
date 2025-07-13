@@ -1,58 +1,91 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useOrder } from '../context/OrderContext';
-import SafeIcon from '../common/SafeIcon';
-import * as FiIcons from 'react-icons/fi';
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { useOrder } from '../context/OrderContext'
+import { useGuestOrders } from '../hooks/useGuestOrders'
+import { useOrders } from '../hooks/useOrders'
+import { useAuth } from '../hooks/useAuth'
+import SafeIcon from '../common/SafeIcon'
+import * as FiIcons from 'react-icons/fi'
+import toast from 'react-hot-toast'
 
-const { FiCreditCard, FiLock, FiShield, FiArrowLeft } = FiIcons;
+const { FiCreditCard, FiLock, FiShield, FiArrowLeft } = FiIcons
 
 function PaymentPage() {
-  const navigate = useNavigate();
-  const { state, dispatch } = useOrder();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const navigate = useNavigate()
+  const { state, dispatch } = useOrder()
+  const { createGuestOrder } = useGuestOrders()
+  const { createOrder } = useOrders()
+  const { user } = useAuth()
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('card')
 
   const handlePayment = async () => {
-    setIsProcessing(true);
+    setIsProcessing(true)
     
-    // Simulate payment processing
     try {
-      // In a real implementation, this would integrate with Selldone API
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
       // Generate order ID
-      const orderId = `AXM-${Date.now()}`;
-      dispatch({ type: 'SET_ORDER_ID', payload: orderId });
-      dispatch({ type: 'SET_STATUS', payload: 'paid' });
+      const orderId = `AXM-${Date.now()}`
       
-      navigate('/upload');
+      // Prepare order data
+      const orderData = {
+        plan_id: state.selectedPlan.id,
+        customer_info: state.customerInfo,
+        file_name: state.audioFile?.name,
+        duration: state.audioDuration,
+        add_ons: state.addOns,
+        total_price: state.totalPrice,
+        promo_code: state.promoCode,
+        discount: state.discount
+      }
+
+      let result
+      if (state.isGuestMode || !user) {
+        // Create guest order
+        result = await createGuestOrder(orderData)
+      } else {
+        // Create authenticated user order
+        result = await createOrder(orderData)
+      }
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      dispatch({ type: 'SET_ORDER_ID', payload: orderId })
+      dispatch({ type: 'SET_STATUS', payload: 'paid' })
+      
+      toast.success('Payment successful!')
+      navigate('/upload')
     } catch (error) {
-      console.error('Payment failed:', error);
-      alert('Payment failed. Please try again.');
+      console.error('Payment failed:', error)
+      toast.error('Payment failed. Please try again.')
     } finally {
-      setIsProcessing(false);
+      setIsProcessing(false)
     }
-  };
+  }
 
   const handleBack = () => {
-    navigate(-1);
-  };
+    navigate(-1)
+  }
 
   if (!state.selectedPlan || !state.audioFile) {
-    navigate('/');
-    return null;
+    navigate('/')
+    return null
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <motion.div 
+      <motion.div
         className="mb-8"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
       >
-        <button 
+        <button
           onClick={handleBack}
           className="inline-flex items-center space-x-2 text-primary-600 hover:text-primary-700 mb-6"
         >
@@ -61,7 +94,7 @@ function PaymentPage() {
         </button>
         
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Secure Payment
+          Secure Payment {state.isGuestMode && '(Guest Checkout)'}
         </h1>
         <p className="text-gray-600">
           Complete your payment to start processing your transcription
@@ -71,7 +104,7 @@ function PaymentPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Payment Form */}
         <div className="lg:col-span-2">
-          <motion.div 
+          <motion.div
             className="bg-white rounded-2xl shadow-lg p-8"
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -87,6 +120,17 @@ function PaymentPage() {
               </div>
             </div>
 
+            {/* Guest Notice */}
+            {state.isGuestMode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-900 mb-2">Guest Checkout</h4>
+                <p className="text-sm text-blue-700">
+                  You're checking out as a guest. Your order confirmation will be sent to{' '}
+                  <strong>{state.customerInfo.email}</strong>
+                </p>
+              </div>
+            )}
+
             {/* Payment Methods */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h3>
@@ -94,19 +138,20 @@ function PaymentPage() {
                 <button
                   onClick={() => setPaymentMethod('card')}
                   className={`p-4 border-2 rounded-lg transition-all duration-200 ${
-                    paymentMethod === 'card' 
-                      ? 'border-primary-500 bg-primary-50' 
+                    paymentMethod === 'card'
+                      ? 'border-primary-500 bg-primary-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <SafeIcon icon={FiCreditCard} className="text-2xl mx-auto mb-2" />
                   <span className="text-sm font-medium">Credit Card</span>
                 </button>
+                
                 <button
                   onClick={() => setPaymentMethod('paypal')}
                   className={`p-4 border-2 rounded-lg transition-all duration-200 ${
-                    paymentMethod === 'paypal' 
-                      ? 'border-primary-500 bg-primary-50' 
+                    paymentMethod === 'paypal'
+                      ? 'border-primary-500 bg-primary-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -175,8 +220,8 @@ function PaymentPage() {
               onClick={handlePayment}
               disabled={isProcessing}
               className={`w-full mt-8 py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-200 ${
-                isProcessing
-                  ? 'bg-gray-400 cursor-not-allowed'
+                isProcessing 
+                  ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-primary-600 hover:bg-primary-700 text-white'
               }`}
               whileHover={!isProcessing ? { scale: 1.02 } : {}}
@@ -199,7 +244,7 @@ function PaymentPage() {
 
         {/* Order Summary */}
         <div className="lg:col-span-1">
-          <motion.div 
+          <motion.div
             className="bg-gray-50 rounded-2xl p-6 sticky top-8"
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -217,7 +262,7 @@ function PaymentPage() {
                 <span className="text-gray-600">Duration</span>
                 <span className="font-medium">{state.audioDuration} minutes</span>
               </div>
-              
+
               {state.addOns && state.addOns.length > 0 && (
                 <>
                   {state.addOns.map(addOn => (
@@ -230,7 +275,7 @@ function PaymentPage() {
                   ))}
                 </>
               )}
-              
+
               {state.discount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount</span>
@@ -240,7 +285,7 @@ function PaymentPage() {
                 </div>
               )}
             </div>
-            
+
             <div className="border-t pt-4">
               <div className="flex justify-between text-xl font-bold">
                 <span>Total</span>
@@ -258,7 +303,7 @@ function PaymentPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default PaymentPage;
+export default PaymentPage

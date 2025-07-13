@@ -22,7 +22,8 @@ const initialState = {
   status: 'pending',
   uploadProgress: 0,
   errors: {},
-  isProcessing: false
+  isProcessing: false,
+  isGuestMode: false
 }
 
 function orderReducer(state, action) {
@@ -78,6 +79,9 @@ function orderReducer(state, action) {
     case 'SET_PROCESSING':
       return { ...state, isProcessing: action.payload }
     
+    case 'SET_GUEST_MODE':
+      return { ...state, isGuestMode: action.payload }
+    
     case 'RESET_ORDER':
       return { ...initialState }
     
@@ -86,13 +90,13 @@ function orderReducer(state, action) {
   }
 }
 
-export function OrderProvider({ children }) {
+export const OrderProvider = React.memo(({ children }) => {
   const [state, dispatch] = useReducer(orderReducer, initialState)
   const { user } = useAuth()
 
   // Auto-fill customer info from user profile
   useEffect(() => {
-    if (user && !state.customerInfo.email) {
+    if (user && !state.customerInfo.email && !state.isGuestMode) {
       dispatch({
         type: 'SET_CUSTOMER_INFO',
         payload: {
@@ -101,10 +105,10 @@ export function OrderProvider({ children }) {
         }
       })
     }
-  }, [user, state.customerInfo.email])
+  }, [user, state.customerInfo.email, state.isGuestMode])
 
-  // Validate order data
-  const validateOrder = () => {
+  // Validate order data with better error handling
+  const validateOrder = React.useCallback(() => {
     try {
       orderSchema.parse({
         planId: state.selectedPlan?.id,
@@ -127,10 +131,10 @@ export function OrderProvider({ children }) {
       dispatch({ type: 'SET_ERRORS', payload: fieldErrors })
       return false
     }
-  }
+  }, [state.selectedPlan, state.customerInfo, state.audioFile, state.audioDuration, state.addOns, state.promoCode])
 
-  // Calculate pricing with validation
-  const calculateTotalPrice = () => {
+  // Calculate pricing with memoization
+  const calculateTotalPrice = React.useCallback(() => {
     if (!state.selectedPlan || !state.audioDuration) return
 
     const basePrice = state.audioDuration * state.selectedPlan.price
@@ -143,26 +147,28 @@ export function OrderProvider({ children }) {
     const finalPrice = Math.max(0, subtotal - discountAmount)
     
     dispatch({ type: 'SET_TOTAL_PRICE', payload: finalPrice })
-  }
+  }, [state.selectedPlan, state.audioDuration, state.addOns, state.discount])
 
   // Auto-calculate price when dependencies change
   useEffect(() => {
     calculateTotalPrice()
-  }, [state.selectedPlan, state.audioDuration, state.addOns, state.discount])
+  }, [calculateTotalPrice])
 
-  const value = {
+  const value = React.useMemo(() => ({
     state,
     dispatch,
     validateOrder,
     calculateTotalPrice
-  }
+  }), [state, validateOrder, calculateTotalPrice])
 
   return (
     <OrderContext.Provider value={value}>
       {children}
     </OrderContext.Provider>
   )
-}
+})
+
+OrderProvider.displayName = 'OrderProvider'
 
 export function useOrder() {
   const context = useContext(OrderContext)

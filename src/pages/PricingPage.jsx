@@ -1,7 +1,10 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import PricingCard from '../components/PricingCard';
-import CompareButton from '../components/CompareButton';
+import React from 'react'
+import { motion } from 'framer-motion'
+import { useAuth } from '../hooks/useAuth'
+import PricingCard from '../components/PricingCard'
+import CompareButton from '../components/CompareButton'
+import GuestCheckoutOption from '../components/GuestCheckoutOption'
+import OrderTracker from '../components/OrderTracker'
 
 const plans = [
   {
@@ -54,12 +57,14 @@ const plans = [
     popular: false,
     color: 'purple'
   }
-];
+]
 
 function PricingPage() {
+  const { user } = useAuth()
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <motion.div 
+      <motion.div
         className="text-center mb-16"
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -87,19 +92,58 @@ function PricingPage() {
         ))}
       </div>
 
-      <motion.div 
+      {/* Guest vs Account Options */}
+      {!user && (
+        <motion.div
+          className="mb-12"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+        >
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              New to AXiM?
+            </h2>
+            <p className="text-gray-600">
+              Choose how you'd like to proceed with your order
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        {/* Compare Plans */}
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+        >
+          <CompareButton />
+        </motion.div>
+
+        {/* Order Tracker for Guests */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 1.0, duration: 0.6 }}
+        >
+          <OrderTracker />
+        </motion.div>
+      </div>
+
+      <motion.div
         className="text-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.8, duration: 0.6 }}
+        transition={{ delay: 1.2, duration: 0.6 }}
       >
-        <CompareButton />
-        <p className="text-sm text-gray-500 mt-6">
+        <p className="text-sm text-gray-500">
           * Student discount codes available for verified students and educators
         </p>
       </motion.div>
     </div>
-  );
+  )
 }
 
-export default PricingPage;
+export default PricingPage

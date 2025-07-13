@@ -32,11 +32,12 @@ const queryClient = new QueryClient({
     queries: {
       retry: 2,
       refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 })
 
-function AppContent() {
+const AppContent = React.memo(() => {
   const { loading } = useAuth()
 
   if (loading) {
@@ -65,7 +66,7 @@ function AppContent() {
             } 
           />
           
-          {/* Protected Routes */}
+          {/* Protected/Guest Routes */}
           <Route 
             path="/dashboard" 
             element={
@@ -74,44 +75,20 @@ function AppContent() {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/order/:plan" 
-            element={
-              <ProtectedRoute>
-                <OrderPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/payment" 
-            element={
-              <ProtectedRoute>
-                <PaymentPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/upload" 
-            element={
-              <ProtectedRoute>
-                <UploadPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/success" 
-            element={
-              <ProtectedRoute>
-                <SuccessPage />
-              </ProtectedRoute>
-            } 
-          />
+          
+          {/* Order flow - supports both authenticated and guest users */}
+          <Route path="/order/:plan" element={<OrderPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/success" element={<SuccessPage />} />
         </Routes>
       </motion.main>
       <Footer />
     </div>
   )
-}
+})
+
+AppContent.displayName = 'AppContent'
 
 function App() {
   return (
