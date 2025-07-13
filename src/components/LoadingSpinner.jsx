@@ -11,7 +11,7 @@ function LoadingSpinner({ size = 'md', className = '' }) {
 
   return (
     <motion.div
-      className={`${sizeClasses[size]} border-4 border-primary-200 border-t-primary-600 rounded-full ${className}`}
+      className={`${sizeClasses[size]} spinner ${className}`}
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
     />
@@ -20,10 +20,10 @@ function LoadingSpinner({ size = 'md', className = '' }) {
 
 export function LoadingPage({ message = 'Loading...' }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-axim-bg flex items-center justify-center">
       <div className="text-center">
         <LoadingSpinner size="xl" className="mx-auto mb-4" />
-        <p className="text-gray-600 text-lg">{message}</p>
+        <p className="text-axim-text-secondary text-lg">{message}</p>
       </div>
     </div>
   )

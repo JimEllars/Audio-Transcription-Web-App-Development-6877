@@ -9,7 +9,7 @@ export function useGuestOrders() {
     try {
       setLoading(true)
       setError(null)
-
+      
       // Create guest order without user authentication
       const { data, error } = await supabase
         .from('orders_ax9m2k1')
@@ -23,9 +23,8 @@ export function useGuestOrders() {
         }])
         .select('id, status, created_at, guest_email')
         .single()
-
-      if (error) throw error
       
+      if (error) throw error
       return { data, error: null }
     } catch (err) {
       setError(err.message)
@@ -39,7 +38,7 @@ export function useGuestOrders() {
     try {
       setLoading(true)
       setError(null)
-
+      
       const { data, error } = await supabase
         .from('orders_ax9m2k1')
         .select('*')
@@ -47,9 +46,8 @@ export function useGuestOrders() {
         .eq('guest_email', email)
         .eq('is_guest', true)
         .single()
-
-      if (error) throw error
       
+      if (error) throw error
       return { data, error: null }
     } catch (err) {
       setError(err.message)

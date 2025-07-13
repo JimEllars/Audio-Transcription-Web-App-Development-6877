@@ -7,27 +7,47 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          900: '#1e3a8a'
+        // Foundation Colors
+        axim: {
+          bg: '#111111',
+          panel: '#1C1C1C',
+          border: '#333333',
+          text: {
+            primary: '#F5F5F5',
+            secondary: '#A9A9A9'
+          }
         },
-        success: {
-          50: '#f0fdf4',
-          500: '#22c55e',
-          600: '#16a34a'
-        },
-        warning: {
-          50: '#fffbeb',
-          500: '#f59e0b',
-          600: '#d97706'
+        // Interactive Colors
+        power: {
+          yellow: '#E8FC04',
+          purple: '#7F00FF',
+          green: '#44DDA0',
+          red: '#FF1744'
         }
       },
+      boxShadow: {
+        'neon-yellow': '0 0 15px rgba(232, 252, 4, 0.3)',
+        'neon-purple': '0 0 15px rgba(127, 0, 255, 0.3)',
+        'neon-green': '0 0 15px rgba(68, 221, 160, 0.3)',
+      },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      animation: {
+        'glow': 'glow 1.5s ease-in-out infinite alternate',
+      },
+      keyframes: {
+        glow: {
+          'from': {
+            'box-shadow': '0 0 10px rgba(127, 0, 255, 0.3)',
+          },
+          'to': {
+            'box-shadow': '0 0 20px rgba(68, 221, 160, 0.5)',
+          }
+        }
+      },
+      backgroundImage: {
+        'gradient-power': 'linear-gradient(135deg, #7F00FF 0%, #44DDA0 100%)',
       }
     },
   },

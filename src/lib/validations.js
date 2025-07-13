@@ -12,13 +12,15 @@ export const promoCodeSchema = z.object({
 })
 
 export const fileUploadSchema = z.object({
-  file: z.instanceof(File).refine(
-    (file) => file.size <= 500 * 1024 * 1024,
-    'File size must be less than 500MB'
-  ).refine(
-    (file) => ['audio/mp3', 'audio/wav', 'audio/m4a', 'audio/aac', 'audio/ogg'].includes(file.type),
-    'Please select a valid audio file (MP3, WAV, M4A, AAC, or OGG)'
-  ),
+  file: z.instanceof(File)
+    .refine(
+      (file) => file.size <= 500 * 1024 * 1024,
+      'File size must be less than 500MB'
+    )
+    .refine(
+      (file) => ['audio/mp3', 'audio/wav', 'audio/m4a', 'audio/aac', 'audio/ogg', 'audio/mpeg'].includes(file.type),
+      'Please select a valid audio file (MP3, WAV, M4A, AAC, or OGG)'
+    ),
 })
 
 export const orderSchema = z.object({
@@ -32,4 +34,19 @@ export const orderSchema = z.object({
     price: z.number(),
   })).optional(),
   promoCode: z.string().optional(),
+})
+
+export const authSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().optional(),
+  fullName: z.string().optional(),
+}).refine((data) => {
+  if (data.confirmPassword && data.password !== data.confirmPassword) {
+    return false
+  }
+  return true
+}, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 })

@@ -20,6 +20,7 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event)
         setUser(session?.user ?? null)
         setLoading(false)
         setError(null)
@@ -32,40 +33,57 @@ export function useAuth() {
   const signUp = async (email, password, metadata = {}) => {
     setLoading(true)
     setError(null)
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata
-      }
-    })
-    
-    setLoading(false)
-    if (error) setError(error.message)
-    return { data, error }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata,
+          emailRedirectTo: window.location.origin
+        }
+      })
+      
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      setError(error.message)
+      return { data: null, error }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const signIn = async (email, password) => {
     setLoading(true)
     setError(null)
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    
-    setLoading(false)
-    if (error) setError(error.message)
-    return { data, error }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      setError(error.message)
+      return { data: null, error }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const signOut = async () => {
     setLoading(true)
-    const { error } = await supabase.auth.signOut()
-    setLoading(false)
-    if (error) setError(error.message)
-    return { error }
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      return { error: null }
+    } catch (error) {
+      setError(error.message)
+      return { error }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return {

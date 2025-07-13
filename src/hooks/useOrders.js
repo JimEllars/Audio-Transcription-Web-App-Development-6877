@@ -9,7 +9,10 @@ export function useOrders() {
   const { user } = useAuth()
 
   const fetchOrders = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     
     try {
       setLoading(true)
@@ -21,7 +24,7 @@ export function useOrders() {
         .select('id, plan_id, status, total_price, duration, file_name, created_at, updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-
+      
       if (error) throw error
       setOrders(data || [])
     } catch (err) {
@@ -38,21 +41,24 @@ export function useOrders() {
 
   const createOrder = async (orderData) => {
     try {
+      if (!user) throw new Error('User must be authenticated to create order')
+      
       const { data, error } = await supabase
         .from('orders_ax9m2k1')
         .insert([{
-          user_id: user?.id,
+          user_id: user.id,
           ...orderData,
           status: 'pending',
           created_at: new Date().toISOString()
         }])
         .select('id, status, created_at')
         .single()
-
+      
       if (error) throw error
       
       // Add to local state for immediate UI update
-      setOrders(prev => [{ ...orderData, ...data }, ...prev])
+      setOrders(prev => [{...orderData, ...data}, ...prev])
+      
       return { data, error: null }
     } catch (err) {
       return { data: null, error: err.message }
@@ -63,20 +69,20 @@ export function useOrders() {
     try {
       const { data, error } = await supabase
         .from('orders_ax9m2k1')
-        .update({ 
-          status, 
+        .update({
+          status,
           ...additionalData,
-          updated_at: new Date().toISOString() 
+          updated_at: new Date().toISOString()
         })
         .eq('id', orderId)
         .select('id, status, updated_at')
         .single()
-
+      
       if (error) throw error
       
       // Update local state
       setOrders(prev => prev.map(order => 
-        order.id === orderId ? { ...order, ...data } : order
+        order.id === orderId ? {...order, ...data} : order
       ))
       
       return { data, error: null }
@@ -88,7 +94,7 @@ export function useOrders() {
   // Set up real-time subscription for order updates
   useEffect(() => {
     if (!user) return
-
+    
     const subscription = supabase
       .channel('orders')
       .on('postgres_changes', {
@@ -98,11 +104,11 @@ export function useOrders() {
         filter: `user_id=eq.${user.id}`
       }, (payload) => {
         setOrders(prev => prev.map(order => 
-          order.id === payload.new.id ? { ...order, ...payload.new } : order
+          order.id === payload.new.id ? {...order, ...payload.new} : order
         ))
       })
       .subscribe()
-
+    
     return () => {
       subscription.unsubscribe()
     }
