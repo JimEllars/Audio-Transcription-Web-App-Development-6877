@@ -2,99 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-axim-bg text-axim-text-secondary;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply text-axim-text-primary font-bold;
-  }
+/* Dark mode styles */
+:root {
+  color-scheme: dark;
 }
 
-@layer components {
-  /* Button Styles */
-  .btn-primary {
-    @apply bg-power-yellow text-axim-bg px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:shadow-neon-yellow disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  
-  .btn-secondary {
-    @apply bg-power-purple text-axim-text-primary px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:shadow-neon-purple disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  
-  .btn-tertiary {
-    @apply bg-transparent border border-axim-text-secondary text-axim-text-secondary px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:border-axim-text-primary hover:text-axim-text-primary;
-  }
-  
-  /* Form Input Styles */
-  .form-input {
-    @apply bg-axim-panel border border-axim-border text-axim-text-primary rounded-lg px-4 py-3 w-full transition-all duration-200 focus:outline-none focus:border-power-purple focus:ring-1 focus:ring-power-purple placeholder:text-axim-text-secondary;
-  }
-  
-  /* Card Styles */
-  .card {
-    @apply bg-axim-panel rounded-2xl border border-axim-border p-6 transition-all duration-300;
-  }
-  
-  .card-hover {
-    @apply hover:border-power-purple hover:shadow-neon-purple;
-  }
-  
-  /* Link Styles */
-  .link {
-    @apply text-power-green hover:text-opacity-80 hover:underline transition-all duration-200;
-  }
-  
-  /* Loading Spinner */
-  .spinner {
-    @apply w-6 h-6 border-2 rounded-full animate-spin;
-    border-top-color: theme('colors.power.purple');
-    border-right-color: theme('colors.power.green');
-    border-bottom-color: theme('colors.power.purple');
-    border-left-color: theme('colors.power.green');
-  }
-  
-  /* Toggle Switch */
-  .toggle {
-    @apply relative inline-flex h-6 w-11 items-center rounded-full bg-axim-border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-power-purple focus:ring-offset-2;
-  }
-  
-  .toggle[aria-checked="true"] {
-    @apply bg-power-green;
-  }
-  
-  .toggle-handle {
-    @apply inline-block h-4 w-4 transform rounded-full bg-white transition duration-200;
-  }
-  
-  /* Progress Bar */
-  .progress-bar {
-    @apply h-2 rounded-full bg-gradient-power;
-  }
-  
-  /* Notification Styles */
-  .notification {
-    @apply rounded-lg p-4 mb-4 flex items-start space-x-3;
-  }
-  
-  .notification-success {
-    @apply bg-power-green bg-opacity-10 text-power-green;
-  }
-  
-  .notification-warning {
-    @apply bg-power-yellow bg-opacity-10 text-power-yellow;
-  }
-  
-  .notification-error {
-    @apply bg-power-red bg-opacity-10 text-power-red;
-  }
+body {
+  @apply bg-axim-bg text-white;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Custom Scrollbar */
+/* Form elements in dark mode */
+input,
+select,
+textarea {
+  @apply bg-axim-panel border-axim-border text-white;
+}
+
+/* Buttons in dark mode */
+button {
+  @apply text-white;
+}
+
+/* Links in dark mode */
+a {
+  @apply text-power-purple hover:text-power-green;
+}
+
+/* Tables in dark mode */
+table {
+  @apply border-axim-border;
+}
+
+th,
+td {
+  @apply border-axim-border text-white;
+}
+
+/* Custom scrollbar for dark mode */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -102,14 +50,5 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-axim-border rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-power-purple;
-}
-
-/* Focus Styles */
-*:focus-visible {
-  @apply outline-none ring-2 ring-power-purple;
+  @apply bg-axim-border rounded-full hover:bg-power-purple;
 }

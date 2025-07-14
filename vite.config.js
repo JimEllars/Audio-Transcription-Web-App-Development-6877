@@ -4,14 +4,20 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  },
-   build: {
+  base: '/wp-content/plugins/axim-transcription/dist/',
+  build: {
+    manifest: true,
     outDir: 'dist',
-    sourcemap: true
-  },
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'src/wordpress-entry.jsx')
+      },
+      output: {
+        entryFileNames: 'js/[name].js',
+        chunkFileNames: 'js/[name]-[hash].js',
+        assetFileNames: 'assets/[name].[ext]'
+      }
+    }
+  }
 });
