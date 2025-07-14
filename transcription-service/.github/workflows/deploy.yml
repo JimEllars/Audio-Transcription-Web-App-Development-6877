@@ -1,0 +1,56 @@
+name: Deploy WordPress Plugin
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Create plugin zip
+        run: |
+          mkdir -p ./dist-plugin
+          cp -r ./dist ./admin ./includes ./transcription-service.php ./README.md ./dist-plugin/
+          cd ./dist-plugin
+          zip -r ../axim-transcription.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: axim-transcription-plugin
+          path: axim-transcription.zip
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: axim-transcription-plugin
+
+      - name: Deploy to WordPress.org
+        if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch'
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: axim-transcription

@@ -26,9 +26,9 @@ export default {
         }
       },
       boxShadow: {
-        'neon-yellow': '0 0 15px rgba(232, 252, 4, 0.3)',
-        'neon-purple': '0 0 15px rgba(127, 0, 255, 0.3)',
-        'neon-green': '0 0 15px rgba(68, 221, 160, 0.3)',
+        'neon-yellow': '0 0 15px rgba(232,252,4,0.3)',
+        'neon-purple': '0 0 15px rgba(127,0,255,0.3)',
+        'neon-green': '0 0 15px rgba(68,221,160,0.3)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -39,10 +39,10 @@ export default {
       keyframes: {
         glow: {
           'from': {
-            'box-shadow': '0 0 10px rgba(127, 0, 255, 0.3)',
+            'box-shadow': '0 0 10px rgba(127,0,255,0.3)',
           },
           'to': {
-            'box-shadow': '0 0 20px rgba(68, 221, 160, 0.5)',
+            'box-shadow': '0 0 20px rgba(68,221,160,0.5)',
           }
         }
       },

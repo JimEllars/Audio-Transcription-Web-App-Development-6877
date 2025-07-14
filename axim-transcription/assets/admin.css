@@ -1,0 +1,199 @@
+/* AXiM Admin Styles */
+.axim-admin-wrap {
+    background: #111111;
+    color: #F5F5F5;
+    padding: 2rem;
+    border-radius: 12px;
+    margin: 20px;
+}
+
+.axim-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.axim-stat-card {
+    background: #1C1C1C;
+    border: 1px solid #333333;
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.axim-stat-card:hover {
+    border-color: #7F00FF;
+    box-shadow: 0 0 15px rgba(127, 0, 255, 0.3);
+}
+
+.axim-stat-card h3 {
+    color: #A9A9A9;
+    margin: 0 0 0.5rem 0;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.axim-stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #44DDA0;
+    line-height: 1;
+}
+
+.axim-card {
+    background: #1C1C1C;
+    border: 1px solid #333333;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.axim-card h2 {
+    color: #F5F5F5;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.axim-card p {
+    color: #A9A9A9;
+    line-height: 1.6;
+}
+
+.axim-card code {
+    background: #111111;
+    color: #E8FC04;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    display: inline-block;
+    margin: 0.25rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+}
+
+.axim-form-group {
+    margin-bottom: 2rem;
+}
+
+.axim-form-group h2 {
+    color: #F5F5F5;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #333333;
+}
+
+/* Override WordPress form styles */
+.axim-admin-wrap .form-table th {
+    color: #F5F5F5;
+    background: none;
+}
+
+.axim-admin-wrap .form-table td {
+    color: #A9A9A9;
+}
+
+.axim-admin-wrap input[type="text"],
+.axim-admin-wrap input[type="password"],
+.axim-admin-wrap select {
+    background: #111111;
+    border: 1px solid #333333;
+    color: #F5F5F5;
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+
+.axim-admin-wrap input[type="text"]:focus,
+.axim-admin-wrap input[type="password"]:focus,
+.axim-admin-wrap select:focus {
+    border-color: #7F00FF;
+    box-shadow: 0 0 0 2px rgba(127, 0, 255, 0.2);
+    outline: none;
+}
+
+.axim-admin-wrap .button-primary {
+    background: #7F00FF !important;
+    border-color: #7F00FF !important;
+    color: #F5F5F5 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    border-radius: 6px !important;
+    padding: 0.75rem 1.5rem !important;
+    height: auto !important;
+    line-height: 1 !important;
+}
+
+.axim-admin-wrap .button-primary:hover {
+    background: #E8FC04 !important;
+    border-color: #E8FC04 !important;
+    color: #111111 !important;
+}
+
+/* Notice styles */
+.axim-admin-wrap .notice {
+    background: #1C1C1C;
+    border-left: 4px solid #44DDA0;
+    color: #F5F5F5;
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 0 6px 6px 0;
+}
+
+/* Table styles */
+.axim-admin-wrap .wp-list-table {
+    background: #1C1C1C;
+    border: 1px solid #333333;
+    color: #F5F5F5;
+}
+
+.axim-admin-wrap .wp-list-table th {
+    background: #111111;
+    color: #A9A9A9;
+    border-bottom: 1px solid #333333;
+}
+
+.axim-admin-wrap .wp-list-table td {
+    border-bottom: 1px solid #333333;
+}
+
+.axim-admin-wrap .wp-list-table .striped > tbody > :nth-child(odd) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Loading state */
+.axim-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #A9A9A9;
+}
+
+.axim-loading::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid #333333;
+    border-top: 2px solid #7F00FF;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .axim-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .axim-admin-wrap {
+        margin: 10px;
+        padding: 1rem;
+    }
+}

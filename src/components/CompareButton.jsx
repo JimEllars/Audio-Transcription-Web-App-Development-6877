@@ -9,8 +9,8 @@ const { FiBarChart3 } = FiIcons;
 function CompareButton() {
   return (
     <Link to="/compare">
-      <motion.button 
-        className="inline-flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium transition-all duration-200"
+      <motion.button
+        className="inline-flex items-center space-x-2 bg-axim-panel hover:bg-axim-bg border border-axim-border text-axim-text-primary px-6 py-3 rounded-xl font-medium transition-all duration-200"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >

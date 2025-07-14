@@ -2,6 +2,14 @@
 
 A WordPress plugin that enables embedding of the AXiM Transcription Service widget anywhere on your website using shortcodes.
 
+## Features
+
+- Embedded transcription service widget with dark mode UI
+- Simple shortcode integration
+- Admin dashboard with analytics
+- Detailed reporting capabilities
+- Fully customizable through WordPress admin
+
 ## Installation
 
 1. Upload the `transcription-service` folder to the `/wp-content/plugins/` directory
@@ -17,17 +25,25 @@ Basic usage:
 
 With options:
 ```php
-[axim_transcription theme="dark" default_plan="business"]
+[axim_transcription default_plan="basic"]
 ```
 
 ## Available Options
 
-- `theme`: light (default) or dark
-- `default_plan`: student, basic (default), or business
+- `default_plan`: student or basic (default)
 
 ## Multiple Instances
 
 The plugin supports multiple widget instances on the same page. Each instance will maintain its own state and configuration.
+
+## Admin Interface
+
+The plugin includes a comprehensive admin interface with:
+
+- Analytics dashboard
+- Order management
+- Settings configuration
+- Automated reporting
 
 ## Development
 

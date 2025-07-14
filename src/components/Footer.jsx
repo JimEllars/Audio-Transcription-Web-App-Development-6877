@@ -18,8 +18,7 @@ function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">AXiM Transcription</h3>
             <p className="text-axim-text-secondary text-sm leading-relaxed">
-              Professional AI-powered transcription service with enterprise-grade security
-              and lightning-fast turnaround times.
+              Professional AI-powered transcription service with enterprise-grade security and lightning-fast turnaround times.
             </p>
           </div>
 

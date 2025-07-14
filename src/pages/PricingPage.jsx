@@ -27,35 +27,19 @@ const plans = [
   {
     id: 'basic',
     name: 'Basic',
-    price: '$0.50',
+    price: '$0.39',
     period: 'per minute',
-    description: 'Great for professionals and small teams',
+    description: 'Great for professionals and teams',
     features: [
       'AI-Powered Transcript',
       'Chapter Labels',
       'Complete in 72 Hours or Less',
-      'Audio Summary Report'
-    ],
-    excludedFeatures: ['Email Summary'],
-    popular: true,
-    color: 'green'
-  },
-  {
-    id: 'business',
-    name: 'Business',
-    price: '$0.75',
-    period: 'per minute',
-    description: 'Premium solution for enterprises',
-    features: [
-      'AI-Powered Transcript',
-      'Chapter Labels',
-      'Complete in 48 Hours or Less',
       'Audio Summary Report',
       'Email Summary'
     ],
     excludedFeatures: [],
-    popular: false,
-    color: 'purple'
+    popular: true,
+    color: 'green'
   }
 ]
 
@@ -70,16 +54,16 @@ function PricingPage() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+        <h1 className="text-4xl md:text-5xl font-bold text-axim-text-primary mb-6">
           Professional Audio Transcription
         </h1>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-          Transform your audio into accurate, searchable text with our AI-powered transcription service. 
+        <p className="text-xl text-axim-text-secondary max-w-3xl mx-auto leading-relaxed">
+          Transform your audio into accurate, searchable text with our AI-powered transcription service.
           Choose the plan that fits your needs.
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 mx-auto max-w-4xl">
         {plans.map((plan, index) => (
           <motion.div
             key={plan.id}
@@ -101,10 +85,10 @@ function PricingPage() {
           transition={{ delay: 0.6, duration: 0.6 }}
         >
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-axim-text-primary mb-2">
               New to AXiM?
             </h2>
-            <p className="text-gray-600">
+            <p className="text-axim-text-secondary">
               Choose how you'd like to proceed with your order
             </p>
           </div>
@@ -138,7 +122,7 @@ function PricingPage() {
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.6 }}
       >
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-axim-text-secondary">
           * Student discount codes available for verified students and educators
         </p>
       </motion.div>

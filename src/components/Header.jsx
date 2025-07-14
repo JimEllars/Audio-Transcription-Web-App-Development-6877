@@ -42,14 +42,23 @@ function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-axim-text-secondary hover:text-power-green transition-colors duration-200">
+            <Link
+              to="/"
+              className="text-axim-text-secondary hover:text-power-green transition-colors duration-200"
+            >
               Pricing
             </Link>
-            <Link to="/compare" className="text-axim-text-secondary hover:text-power-green transition-colors duration-200">
+            <Link
+              to="/compare"
+              className="text-axim-text-secondary hover:text-power-green transition-colors duration-200"
+            >
               Compare Plans
             </Link>
             {user && (
-              <Link to="/dashboard" className="text-axim-text-secondary hover:text-power-green transition-colors duration-200">
+              <Link
+                to="/dashboard"
+                className="text-axim-text-secondary hover:text-power-green transition-colors duration-200"
+              >
                 Dashboard
               </Link>
             )}

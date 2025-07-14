@@ -45,7 +45,7 @@ const AppContent = React.memo(() => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col">
+    <div className="min-h-screen bg-axim-bg flex flex-col">
       <Header />
       <motion.main 
         className="flex-1"
@@ -57,25 +57,19 @@ const AppContent = React.memo(() => {
           {/* Public Routes */}
           <Route path="/" element={<PricingPage />} />
           <Route path="/compare" element={<ComparisonPage />} />
-          <Route 
-            path="/auth" 
-            element={
-              <ProtectedRoute requireAuth={false}>
-                <AuthPage />
-              </ProtectedRoute>
-            } 
-          />
-          
+          <Route path="/auth" element={
+            <ProtectedRoute requireAuth={false}>
+              <AuthPage />
+            </ProtectedRoute>
+          } />
+
           {/* Protected/Guest Routes */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            } 
-          />
-          
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } />
+
           {/* Order flow - supports both authenticated and guest users */}
           <Route path="/order/:plan" element={<OrderPage />} />
           <Route path="/payment" element={<PaymentPage />} />

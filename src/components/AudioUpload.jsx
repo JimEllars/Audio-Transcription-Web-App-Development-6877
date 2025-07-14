@@ -19,39 +19,37 @@ function AudioUpload() {
   const calculateDuration = (file) => {
     return new Promise((resolve, reject) => {
       setIsCalculating(true)
-      
       try {
         const objectUrl = URL.createObjectURL(file)
         const audio = document.createElement('audio')
         audio.preload = 'metadata'
-        
+
         const cleanup = () => {
           URL.revokeObjectURL(objectUrl)
           setIsCalculating(false)
         }
-        
+
         audio.addEventListener('loadedmetadata', () => {
           const duration = audio.duration
           cleanup()
-          
           if (duration && !isNaN(duration) && duration > 0) {
             resolve(duration)
           } else {
             reject(new Error('Could not determine audio duration'))
           }
         })
-        
+
         audio.addEventListener('error', () => {
           cleanup()
           reject(new Error('Error loading audio file'))
         })
-        
+
         // Set a timeout for very large files
         setTimeout(() => {
           cleanup()
           reject(new Error('File processing timeout'))
         }, 10000)
-        
+
         audio.src = objectUrl
       } catch (error) {
         setIsCalculating(false)
@@ -65,10 +63,7 @@ function AudioUpload() {
       fileUploadSchema.parse({ file })
       return { valid: true }
     } catch (error) {
-      return { 
-        valid: false, 
-        error: error.errors[0]?.message || 'Invalid file' 
-      }
+      return { valid: false, error: error.errors[0]?.message || 'Invalid file' }
     }
   }
 
@@ -86,11 +81,10 @@ function AudioUpload() {
       // Calculate duration
       const duration = await calculateDuration(file)
       const durationMinutes = Math.ceil(duration / 60)
-      
+
       // Store file temporarily (will upload later during order submission)
       dispatch({ type: 'SET_AUDIO_FILE', payload: file })
       dispatch({ type: 'SET_AUDIO_DURATION', payload: durationMinutes })
-      
       toast.success('Audio file processed successfully!')
     } catch (error) {
       console.error('Error processing audio file:', error)
@@ -155,8 +149,8 @@ function AudioUpload() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Your Audio File</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold text-axim-text-primary mb-2">Upload Your Audio File</h2>
+        <p className="text-axim-text-secondary">
           Select an audio file to get started. We support MP3, WAV, M4A, AAC, and OGG formats up to 500MB.
         </p>
       </div>
@@ -165,11 +159,12 @@ function AudioUpload() {
       <motion.div
         className={`
           border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 relative
-          ${isDragging 
-            ? 'border-primary-400 bg-primary-50' 
-            : state.audioFile 
-              ? 'border-green-400 bg-green-50' 
-              : 'border-gray-300 bg-gray-50 hover:border-primary-400 hover:bg-primary-50'
+          ${
+            isDragging
+              ? 'border-power-purple bg-axim-bg'
+              : state.audioFile
+              ? 'border-power-green bg-axim-bg'
+              : 'border-axim-border bg-axim-bg hover:border-power-purple'
           }
         `}
         onDrop={handleDrop}
@@ -188,30 +183,29 @@ function AudioUpload() {
 
         {isCalculating ? (
           <div className="space-y-4">
-            <div className="animate-spin w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
-            <p className="text-gray-600">Analyzing audio file...</p>
+            <div className="animate-spin w-12 h-12 border-4 border-power-purple border-t-transparent rounded-full mx-auto"></div>
+            <p className="text-axim-text-secondary">Analyzing audio file...</p>
           </div>
         ) : state.audioFile ? (
           <div className="space-y-4">
-            <SafeIcon icon={FiFile} className="text-green-500 text-4xl mx-auto" />
+            <SafeIcon icon={FiFile} className="text-power-green text-4xl mx-auto" />
             <div>
-              <p className="font-semibold text-gray-900">{state.audioFile.name}</p>
-              <p className="text-sm text-gray-600">
+              <p className="font-semibold text-axim-text-primary">{state.audioFile.name}</p>
+              <p className="text-sm text-axim-text-secondary">
                 {formatFileSize(state.audioFile.size)} • {formatDuration(state.audioDuration)}
               </p>
             </div>
-            
             <div className="flex justify-center space-x-4">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-primary-600 hover:text-primary-700 font-medium"
+                className="text-power-purple hover:text-opacity-80 font-medium"
                 disabled={uploading}
               >
                 Choose different file
               </button>
               <button
                 onClick={removeFile}
-                className="text-red-600 hover:text-red-700 font-medium flex items-center space-x-1"
+                className="text-power-red hover:text-opacity-80 font-medium flex items-center space-x-1"
                 disabled={uploading}
               >
                 <SafeIcon icon={FiX} className="text-sm" />
@@ -221,18 +215,18 @@ function AudioUpload() {
           </div>
         ) : (
           <div className="space-y-4">
-            <SafeIcon icon={FiUpload} className="text-gray-400 text-4xl mx-auto" />
+            <SafeIcon icon={FiUpload} className="text-axim-text-secondary text-4xl mx-auto" />
             <div>
-              <p className="text-lg font-medium text-gray-900 mb-2">
+              <p className="text-lg font-medium text-axim-text-primary mb-2">
                 Drop your audio file here, or click to browse
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-axim-text-secondary">
                 Supported formats: MP3, WAV, M4A, AAC, OGG • Maximum size: 500MB
               </p>
             </div>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 disabled:bg-gray-400"
+              className="bg-power-purple hover:bg-opacity-90 text-axim-text-primary px-6 py-3 rounded-lg font-medium transition-colors duration-200 disabled:bg-axim-border"
               disabled={isCalculating || uploading}
             >
               Select File
@@ -243,33 +237,33 @@ function AudioUpload() {
 
       {/* Price Calculation */}
       {state.audioFile && state.audioDuration > 0 && state.selectedPlan && (
-        <motion.div 
-          className="bg-blue-50 border border-blue-200 rounded-xl p-6"
+        <motion.div
+          className="bg-axim-bg border border-axim-border rounded-xl p-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Price Calculation</h3>
+          <h3 className="text-lg font-semibold text-axim-text-primary mb-4">Price Calculation</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center space-x-2">
-              <SafeIcon icon={FiClock} className="text-blue-500" />
+              <SafeIcon icon={FiClock} className="text-power-purple" />
               <div>
-                <p className="text-sm text-gray-600">Duration</p>
-                <p className="font-semibold">{formatDuration(state.audioDuration)}</p>
+                <p className="text-sm text-axim-text-secondary">Duration</p>
+                <p className="font-semibold text-axim-text-primary">{formatDuration(state.audioDuration)}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <SafeIcon icon={FiDollarSign} className="text-blue-500" />
+              <SafeIcon icon={FiDollarSign} className="text-power-purple" />
               <div>
-                <p className="text-sm text-gray-600">Rate</p>
-                <p className="font-semibold">${state.selectedPlan.price}/minute</p>
+                <p className="text-sm text-axim-text-secondary">Rate</p>
+                <p className="font-semibold text-axim-text-primary">${state.selectedPlan.price}/minute</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <SafeIcon icon={FiDollarSign} className="text-green-500" />
+              <SafeIcon icon={FiDollarSign} className="text-power-green" />
               <div>
-                <p className="text-sm text-gray-600">Base Total</p>
-                <p className="text-xl font-bold text-green-600">
+                <p className="text-sm text-axim-text-secondary">Base Total</p>
+                <p className="text-xl font-bold text-power-green">
                   ${(state.audioDuration * state.selectedPlan.price).toFixed(2)}
                 </p>
               </div>
@@ -280,19 +274,19 @@ function AudioUpload() {
 
       {/* Upload Progress (if uploading) */}
       {uploading && (
-        <motion.div 
-          className="bg-yellow-50 border border-yellow-200 rounded-xl p-6"
+        <motion.div
+          className="bg-axim-bg border border-power-yellow border-opacity-30 rounded-xl p-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-gray-700">Uploading file...</span>
-            <span className="text-sm font-medium text-gray-700">{Math.round(progress)}%</span>
+            <span className="text-sm font-medium text-axim-text-primary">Uploading file...</span>
+            <span className="text-sm font-medium text-axim-text-primary">{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <motion.div 
-              className="bg-primary-500 h-2 rounded-full"
+          <div className="w-full bg-axim-border rounded-full h-2">
+            <motion.div
+              className="bg-power-purple h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
