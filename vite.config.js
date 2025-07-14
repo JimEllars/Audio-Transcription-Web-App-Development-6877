@@ -4,7 +4,6 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/wp-content/plugins/axim-transcription/dist/',
   build: {
     manifest: true,
     outDir: 'dist',
@@ -14,10 +13,13 @@ export default defineConfig({
         main: path.resolve(__dirname, 'src/wordpress-entry.jsx')
       },
       output: {
-        entryFileNames: 'js/[name].js',
+        entryFileNames: 'js/[name]-[hash].js',
         chunkFileNames: 'js/[name]-[hash].js',
         assetFileNames: 'assets/[name].[ext]'
       }
     }
+  },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
   }
 });

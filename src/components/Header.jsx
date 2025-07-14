@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 const { FiMic, FiFileText, FiUser, FiLogOut } = FiIcons
 
-function Header() {
+function Header({ version }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
@@ -23,7 +23,7 @@ function Header() {
   }
 
   return (
-    <motion.header
+    <motion.header 
       className="bg-axim-panel border-b border-axim-border sticky top-0 z-50"
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -37,7 +37,9 @@ function Header() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-axim-text-primary">AXiM</h1>
-              <p className="text-sm text-axim-text-secondary">Transcription Service</p>
+              <p className="text-sm text-axim-text-secondary">
+                Transcription v{version}
+              </p>
             </div>
           </Link>
 

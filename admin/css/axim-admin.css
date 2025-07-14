@@ -1,0 +1,137 @@
+/* AXiM Brand Colors */
+:root {
+  --axim-bg: #111111;
+  --axim-panel: #1C1C1C;
+  --axim-border: #333333;
+  --axim-text-primary: #FFFFFF;
+  --axim-text-secondary: #A9A9A9;
+  --power-yellow: #E8FC04;
+  --power-purple: #7F00FF;
+  --power-green: #44DDA0;
+  --power-red: #FF1744;
+}
+
+.axim-admin-wrap {
+  background: var(--axim-bg);
+  color: var(--axim-text-primary);
+  padding: 2rem;
+  border-radius: 12px;
+  margin: 20px;
+}
+
+.axim-admin-wrap h1,
+.axim-admin-wrap h2,
+.axim-admin-wrap h3,
+.axim-admin-wrap h4 {
+  color: var(--axim-text-primary);
+}
+
+.axim-admin-wrap p,
+.axim-admin-wrap td,
+.axim-admin-wrap th,
+.axim-admin-wrap label {
+  color: var(--axim-text-primary);
+}
+
+.axim-card {
+  background: var(--axim-panel);
+  border: 1px solid var(--axim-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.axim-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.axim-stat-card {
+  background: var(--axim-panel);
+  border: 1px solid var(--axim-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.axim-stat-card:hover {
+  border-color: var(--power-purple);
+  box-shadow: 0 0 15px rgba(127, 0, 255, 0.3);
+}
+
+.axim-stat-card h3 {
+  color: var(--axim-text-secondary);
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.axim-stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--power-green);
+  line-height: 1;
+}
+
+/* Override WordPress table styles for dark mode */
+.axim-admin-wrap table,
+.axim-admin-wrap .wp-list-table {
+  background: var(--axim-panel);
+  border: 1px solid var(--axim-border);
+  color: var(--axim-text-primary);
+}
+
+.axim-admin-wrap .wp-list-table th {
+  background: var(--axim-bg);
+  color: var(--axim-text-primary);
+  border-bottom: 1px solid var(--axim-border);
+}
+
+.axim-admin-wrap .wp-list-table td {
+  border-bottom: 1px solid var(--axim-border);
+  color: var(--axim-text-primary);
+}
+
+.axim-admin-wrap .wp-list-table .striped > tbody > :nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Loading state */
+.axim-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--axim-text-secondary);
+}
+
+.axim-loading::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--axim-border);
+  border-top: 2px solid var(--power-purple);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .axim-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .axim-admin-wrap {
+    margin: 10px;
+    padding: 1rem;
+  }
+}

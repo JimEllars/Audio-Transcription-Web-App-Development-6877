@@ -37,7 +37,7 @@ const queryClient = new QueryClient({
   },
 })
 
-const AppContent = React.memo(() => {
+const AppContent = React.memo(({ defaultPlan, theme, version }) => {
   const { loading } = useAuth()
 
   if (loading) {
@@ -45,9 +45,9 @@ const AppContent = React.memo(() => {
   }
 
   return (
-    <div className="min-h-screen bg-axim-bg flex flex-col">
-      <Header />
-      <motion.main 
+    <div className={`min-h-screen bg-axim-bg flex flex-col ${theme}`}>
+      <Header version={version} />
+      <motion.main
         className="flex-1"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -55,7 +55,7 @@ const AppContent = React.memo(() => {
       >
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<PricingPage />} />
+          <Route path="/" element={<PricingPage defaultPlan={defaultPlan} />} />
           <Route path="/compare" element={<ComparisonPage />} />
           <Route path="/auth" element={
             <ProtectedRoute requireAuth={false}>
@@ -77,21 +77,27 @@ const AppContent = React.memo(() => {
           <Route path="/success" element={<SuccessPage />} />
         </Routes>
       </motion.main>
-      <Footer />
+      <Footer version={version} />
     </div>
   )
 })
 
 AppContent.displayName = 'AppContent'
 
-function App() {
+function App({ defaultPlan = 'basic', theme = 'dark', version = '1.2.0', containerId, instanceId }) {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <OrderProvider>
           <Router>
             <ToastProvider />
-            <AppContent />
+            <AppContent 
+              defaultPlan={defaultPlan} 
+              theme={theme} 
+              version={version}
+              containerId={containerId}
+              instanceId={instanceId}
+            />
           </Router>
         </OrderProvider>
       </QueryClientProvider>

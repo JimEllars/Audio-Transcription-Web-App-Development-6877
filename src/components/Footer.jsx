@@ -5,9 +5,9 @@ import * as FiIcons from 'react-icons/fi'
 
 const { FiShield, FiLock, FiGlobe } = FiIcons
 
-function Footer() {
+function Footer({ version }) {
   return (
-    <motion.footer
+    <motion.footer 
       className="bg-axim-panel text-axim-text-primary mt-20 border-t border-axim-border"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -16,12 +16,15 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-lg font-semibold mb-4">AXiM Transcription</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              AXiM Transcription v{version}
+            </h3>
             <p className="text-axim-text-secondary text-sm leading-relaxed">
-              Professional AI-powered transcription service with enterprise-grade security and lightning-fast turnaround times.
+              Professional AI-powered transcription service with enterprise-grade security 
+              and lightning-fast turnaround times.
             </p>
           </div>
-
+          
           <div>
             <h4 className="text-md font-medium mb-4">Security & Compliance</h4>
             <div className="space-y-3">
@@ -39,7 +42,7 @@ function Footer() {
               </div>
             </div>
           </div>
-
+          
           <div>
             <h4 className="text-md font-medium mb-4">Contact</h4>
             <div className="text-sm text-axim-text-secondary space-y-2">
@@ -48,9 +51,9 @@ function Footer() {
             </div>
           </div>
         </div>
-
+        
         <div className="border-t border-axim-border mt-8 pt-8 text-center text-sm text-axim-text-secondary">
-          <p>&copy; 2025 AXiM Systems. All rights reserved.</p>
+          <p>&copy; 2025 AXiM Systems. All rights reserved. Plugin v{version}</p>
         </div>
       </div>
     </motion.footer>

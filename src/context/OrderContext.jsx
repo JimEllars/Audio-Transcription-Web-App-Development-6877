@@ -4,6 +4,28 @@ import { useAuth } from '../hooks/useAuth'
 
 const OrderContext = createContext()
 
+// Function to load state from sessionStorage
+const loadState = () => {
+  try {
+    const serializedState = sessionStorage.getItem('aximOrderState')
+    if (serializedState === null) {
+      return undefined // No state in storage
+    }
+    const state = JSON.parse(serializedState)
+    
+    // Don't restore audioFile from sessionStorage (File objects can't be serialized)
+    if (state.audioFile) {
+      state.audioFile = null
+      state.audioDuration = 0
+    }
+    
+    return state
+  } catch (error) {
+    console.error("Error loading state from sessionStorage:", error)
+    return undefined
+  }
+}
+
 const initialState = {
   selectedPlan: null,
   customerInfo: {
@@ -32,22 +54,22 @@ function orderReducer(state, action) {
       return { ...state, selectedPlan: action.payload }
     
     case 'SET_CUSTOMER_INFO':
-      return { 
-        ...state, 
+      return {
+        ...state,
         customerInfo: { ...state.customerInfo, ...action.payload },
         errors: { ...state.errors, customerInfo: null }
       }
     
     case 'SET_PROMO_CODE':
-      return { 
-        ...state, 
+      return {
+        ...state,
         promoCode: action.payload,
         errors: { ...state.errors, promoCode: null }
       }
     
     case 'SET_AUDIO_FILE':
-      return { 
-        ...state, 
+      return {
+        ...state,
         audioFile: action.payload,
         errors: { ...state.errors, audioFile: null }
       }
@@ -83,6 +105,8 @@ function orderReducer(state, action) {
       return { ...state, isGuestMode: action.payload }
     
     case 'RESET_ORDER':
+      // Clear sessionStorage when resetting
+      sessionStorage.removeItem('aximOrderState')
       return { ...initialState }
     
     default:
@@ -91,8 +115,25 @@ function orderReducer(state, action) {
 }
 
 export const OrderProvider = React.memo(({ children }) => {
-  const [state, dispatch] = useReducer(orderReducer, initialState)
+  // Initialize state from sessionStorage or use initial state
+  const [state, dispatch] = useReducer(orderReducer, loadState() || initialState)
   const { user } = useAuth()
+
+  // Effect to save state to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      // Don't save audioFile to sessionStorage (File objects can't be serialized)
+      const stateToSave = { ...state }
+      if (stateToSave.audioFile) {
+        stateToSave.audioFile = null
+      }
+      
+      const serializedState = JSON.stringify(stateToSave)
+      sessionStorage.setItem('aximOrderState', serializedState)
+    } catch (error) {
+      console.error("Error saving state to sessionStorage:", error)
+    }
+  }, [state])
 
   // Auto-fill customer info from user profile
   useEffect(() => {
@@ -141,11 +182,11 @@ export const OrderProvider = React.memo(({ children }) => {
     const addOnPrice = (state.addOns || []).reduce((total, item) => {
       return total + (item.price * state.audioDuration)
     }, 0)
-    
+
     const subtotal = basePrice + addOnPrice
     const discountAmount = subtotal * state.discount
     const finalPrice = Math.max(0, subtotal - discountAmount)
-    
+
     dispatch({ type: 'SET_TOTAL_PRICE', payload: finalPrice })
   }, [state.selectedPlan, state.audioDuration, state.addOns, state.discount])
 
