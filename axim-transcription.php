@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AXiM Transcription Service
  * Plugin URI: https://aximsystems.com/
- * Description: Professional AI-powered transcription service with secure credentials and state persistence
- * Version: 1.2.0
+ * Description: Professional AI-powered transcription service with Noota API integration
+ * Version: 1.4.0
  * Author: AXiM Systems
  * Author URI: https://aximsystems.com/
  * Text Domain: axim-transcription
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('AXIM_VERSION', '1.2.0');
+define('AXIM_VERSION', '1.4.0');
 define('AXIM_PATH', plugin_dir_path(__FILE__));
 define('AXIM_URL', plugin_dir_url(__FILE__));
 
@@ -34,16 +34,77 @@ class AXiMTranscription {
         add_shortcode('axim_transcription', array($this, 'render_widget'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
+        add_action('admin_init', array($this, 'register_settings'));
+        
+        // AJAX handlers
         add_action('wp_ajax_axim_get_analytics', array($this, 'get_analytics_data'));
         add_action('wp_ajax_axim_track_event', array($this, 'track_event'));
         add_action('wp_ajax_nopriv_axim_track_event', array($this, 'track_event'));
+        add_action('wp_ajax_axim_create_payment_intent', array($this, 'create_payment_intent'));
+        add_action('wp_ajax_nopriv_axim_create_payment_intent', array($this, 'create_payment_intent'));
+        add_action('wp_ajax_axim_confirm_payment', array($this, 'confirm_payment'));
+        add_action('wp_ajax_nopriv_axim_confirm_payment', array($this, 'confirm_payment'));
+        add_action('wp_ajax_axim_upload_audio', array($this, 'upload_audio_to_noota'));
+        add_action('wp_ajax_nopriv_axim_upload_audio', array($this, 'upload_audio_to_noota'));
+        
+        // Webhook handlers
+        add_action('wp_ajax_axim_stripe_webhook', array($this, 'handle_stripe_webhook'));
+        add_action('wp_ajax_nopriv_axim_stripe_webhook', array($this, 'handle_stripe_webhook'));
+        add_action('wp_ajax_axim_noota_webhook', array($this, 'handle_noota_webhook'));
+        add_action('wp_ajax_nopriv_axim_noota_webhook', array($this, 'handle_noota_webhook'));
+        
+        add_action('init', array($this, 'add_webhook_endpoints'));
+        
+        // Scheduled tasks
+        add_action('axim_check_transcription_status', array($this, 'check_transcription_status'));
+        
+        // Initialize Noota API client
+        require_once AXIM_PATH . 'includes/class-noota-api.php';
+    }
+
+    public function add_webhook_endpoints() {
+        // Stripe webhook
+        add_rewrite_rule(
+            '^axim/webhook/stripe/?$',
+            'index.php?axim_stripe_webhook=1',
+            'top'
+        );
+        add_rewrite_tag('%axim_stripe_webhook%', '([^&]+)');
+        
+        // Noota webhook
+        add_rewrite_rule(
+            '^axim/webhook/noota/?$',
+            'index.php?axim_noota_webhook=1',
+            'top'
+        );
+        add_rewrite_tag('%axim_noota_webhook%', '([^&]+)');
+        
+        // Handle webhook requests
+        if (get_query_var('axim_stripe_webhook')) {
+            $this->handle_stripe_webhook();
+            exit;
+        }
+        
+        if (get_query_var('axim_noota_webhook')) {
+            $this->handle_noota_webhook();
+            exit;
+        }
+    }
+
+    public function register_settings() {
+        register_setting('axim_settings', 'axim_stripe_secret_key');
+        register_setting('axim_settings', 'axim_stripe_webhook_secret');
+        register_setting('axim_settings', 'axim_noota_api_key');
+        register_setting('axim_settings', 'axim_noota_workspace_id');
+        register_setting('axim_settings', 'axim_transcription_provider');
+        register_setting('axim_settings', 'axim_supabase_url');
+        register_setting('axim_settings', 'axim_supabase_key');
     }
 
     public function enqueue_vite_assets() {
         $manifest_path = AXIM_PATH . 'dist/.vite/manifest.json';
         
         if (!file_exists($manifest_path)) {
-            // Fallback to static files if manifest doesn't exist
             wp_enqueue_style(
                 'axim-styles',
                 AXIM_URL . 'dist/assets/main.css',
@@ -66,7 +127,6 @@ class AXiMTranscription {
                 if (isset($manifest[$entry_file])) {
                     $entry = $manifest[$entry_file];
                     
-                    // Enqueue CSS
                     if (isset($entry['css'])) {
                         foreach ($entry['css'] as $css_file) {
                             wp_enqueue_style(
@@ -78,7 +138,6 @@ class AXiMTranscription {
                         }
                     }
 
-                    // Enqueue JavaScript
                     if (isset($entry['file'])) {
                         wp_enqueue_script(
                             'axim-transcription-app',
@@ -92,7 +151,6 @@ class AXiMTranscription {
             }
         }
 
-        // Securely pass data to the script
         wp_localize_script(
             'axim-transcription-app',
             'aximAppData',
@@ -102,6 +160,7 @@ class AXiMTranscription {
                 'pluginUrl' => AXIM_URL,
                 'supabaseUrl' => 'https://ukrzgadtuqlkinsodfxn.supabase.co',
                 'supabaseAnonKey' => 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw',
+                'stripePublishableKey' => 'pk_live_51M9M9WJahsdipCJXf8NR7es7EnYBzk5vxNCKWW51H7TZdYdC4N0qMYATnHniWkN85iZc2lIMWh360fKuYGMFFUDt00A1wBVyPk',
                 'version' => AXIM_VERSION
             )
         );
@@ -129,6 +188,589 @@ class AXiMTranscription {
         );
     }
 
+    public function upload_audio_to_noota() {
+        check_ajax_referer('axim-nonce', 'nonce');
+        
+        try {
+            if (!isset($_FILES['audio_file'])) {
+                throw new Exception('No audio file provided');
+            }
+            
+            $order_id = sanitize_text_field($_POST['order_id']);
+            $plan_id = sanitize_text_field($_POST['plan_id']);
+            
+            // Get order details from Supabase
+            $order = $this->get_order_from_supabase($order_id);
+            if (!$order) {
+                throw new Exception('Order not found');
+            }
+            
+            // Initialize Noota API
+            $noota = new Noota_API();
+            
+            // Upload file to Noota
+            $upload_response = $noota->upload_audio_file($_FILES['audio_file'], [
+                'title' => 'AXiM Transcription - Order ' . $order_id,
+                'description' => 'Audio file for transcription order ' . $order_id,
+                'language' => $this->detect_audio_language($_FILES['audio_file']),
+                'webhook_url' => home_url('/axim/webhook/noota'),
+                'metadata' => [
+                    'order_id' => $order_id,
+                    'plan_id' => $plan_id,
+                    'customer_email' => $order['guest_email']
+                ]
+            ]);
+            
+            if (!$upload_response || !isset($upload_response['id'])) {
+                throw new Exception('Failed to upload file to Noota');
+            }
+            
+            // Update order with Noota recording ID
+            $this->update_order_in_supabase($order_id, [
+                'noota_recording_id' => $upload_response['id'],
+                'status' => 'processing',
+                'transcription_provider' => 'noota',
+                'processing_started_at' => date('c')
+            ]);
+            
+            // Start transcription process
+            $transcription_response = $noota->start_transcription($upload_response['id'], [
+                'language' => $this->detect_audio_language($_FILES['audio_file']),
+                'include_summary' => true,
+                'include_chapters' => true,
+                'include_keywords' => true,
+                'webhook_url' => home_url('/axim/webhook/noota')
+            ]);
+            
+            // Track event
+            $this->track_event_internal('transcription_started', [
+                'order_id' => $order_id,
+                'noota_recording_id' => $upload_response['id'],
+                'provider' => 'noota'
+            ]);
+            
+            wp_send_json_success([
+                'order_id' => $order_id,
+                'noota_recording_id' => $upload_response['id'],
+                'status' => 'processing',
+                'message' => 'Audio file uploaded successfully. Transcription in progress.'
+            ]);
+            
+        } catch (Exception $e) {
+            error_log('Noota upload error: ' . $e->getMessage());
+            wp_send_json_error('Upload failed: ' . $e->getMessage());
+        }
+    }
+
+    public function handle_noota_webhook() {
+        $payload = file_get_contents('php://input');
+        $data = json_decode($payload, true);
+        
+        if (!$data) {
+            http_response_code(400);
+            exit('Invalid JSON payload');
+        }
+        
+        try {
+            $event_type = $data['event'] ?? '';
+            $recording_data = $data['data'] ?? [];
+            $recording_id = $recording_data['id'] ?? '';
+            
+            error_log('Noota webhook received: ' . $event_type . ' for recording: ' . $recording_id);
+            
+            switch ($event_type) {
+                case 'transcription.completed':
+                    $this->handle_transcription_completed($recording_data);
+                    break;
+                    
+                case 'transcription.failed':
+                    $this->handle_transcription_failed($recording_data);
+                    break;
+                    
+                case 'recording.processing':
+                    $this->handle_transcription_processing($recording_data);
+                    break;
+                    
+                default:
+                    error_log('Unhandled Noota webhook event: ' . $event_type);
+            }
+            
+            http_response_code(200);
+            echo 'OK';
+            
+        } catch (Exception $e) {
+            error_log('Noota webhook error: ' . $e->getMessage());
+            http_response_code(500);
+            exit('Webhook processing failed');
+        }
+    }
+
+    private function handle_transcription_completed($recording_data) {
+        $recording_id = $recording_data['id'];
+        $order_id = $recording_data['metadata']['order_id'] ?? '';
+        
+        if (!$order_id) {
+            throw new Exception('No order ID in webhook data');
+        }
+        
+        // Get full transcription data from Noota
+        $noota = new Noota_API();
+        $transcription = $noota->get_transcription($recording_id);
+        
+        if (!$transcription) {
+            throw new Exception('Failed to retrieve transcription from Noota');
+        }
+        
+        // Process and format transcription data
+        $formatted_data = $this->format_transcription_data($transcription);
+        
+        // Update order status
+        $this->update_order_in_supabase($order_id, [
+            'status' => 'completed',
+            'transcription_data' => $formatted_data,
+            'completed_at' => date('c')
+        ]);
+        
+        // Send completion email
+        $order = $this->get_order_from_supabase($order_id);
+        if ($order) {
+            $this->send_transcription_completion_email($order, $formatted_data);
+        }
+        
+        // Track completion
+        $this->track_event_internal('transcription_completed', [
+            'order_id' => $order_id,
+            'noota_recording_id' => $recording_id,
+            'duration' => $transcription['duration'] ?? 0
+        ]);
+    }
+
+    private function handle_transcription_failed($recording_data) {
+        $recording_id = $recording_data['id'];
+        $order_id = $recording_data['metadata']['order_id'] ?? '';
+        $error_message = $recording_data['error'] ?? 'Unknown error';
+        
+        if ($order_id) {
+            $this->update_order_in_supabase($order_id, [
+                'status' => 'failed',
+                'error_message' => $error_message,
+                'failed_at' => date('c')
+            ]);
+            
+            // Send failure notification
+            $order = $this->get_order_from_supabase($order_id);
+            if ($order) {
+                $this->send_transcription_failure_email($order, $error_message);
+            }
+        }
+        
+        $this->track_event_internal('transcription_failed', [
+            'order_id' => $order_id,
+            'noota_recording_id' => $recording_id,
+            'error' => $error_message
+        ]);
+    }
+
+    private function handle_transcription_processing($recording_data) {
+        $recording_id = $recording_data['id'];
+        $order_id = $recording_data['metadata']['order_id'] ?? '';
+        $progress = $recording_data['progress'] ?? 0;
+        
+        if ($order_id) {
+            $this->update_order_in_supabase($order_id, [
+                'processing_progress' => $progress,
+                'updated_at' => date('c')
+            ]);
+        }
+        
+        $this->track_event_internal('transcription_progress', [
+            'order_id' => $order_id,
+            'noota_recording_id' => $recording_id,
+            'progress' => $progress
+        ]);
+    }
+
+    private function format_transcription_data($transcription) {
+        return [
+            'transcript' => $transcription['transcript'] ?? '',
+            'summary' => $transcription['summary'] ?? '',
+            'chapters' => $transcription['chapters'] ?? [],
+            'keywords' => $transcription['keywords'] ?? [],
+            'speakers' => $transcription['speakers'] ?? [],
+            'duration' => $transcription['duration'] ?? 0,
+            'language' => $transcription['language'] ?? 'en',
+            'confidence' => $transcription['confidence'] ?? 0,
+            'word_count' => str_word_count($transcription['transcript'] ?? ''),
+            'processed_at' => date('c')
+        ];
+    }
+
+    private function send_transcription_completion_email($order, $transcription_data) {
+        $to = $order['guest_email'];
+        $subject = 'Your AXiM Transcription is Ready - Order ' . $order['id'];
+        
+        $message = "Hello,\n\n";
+        $message .= "Your transcription is now complete!\n\n";
+        $message .= "Order ID: " . $order['id'] . "\n";
+        $message .= "Duration: " . $transcription_data['duration'] . " seconds\n";
+        $message .= "Word Count: " . $transcription_data['word_count'] . " words\n\n";
+        
+        if (!empty($transcription_data['summary'])) {
+            $message .= "SUMMARY:\n";
+            $message .= $transcription_data['summary'] . "\n\n";
+        }
+        
+        $message .= "FULL TRANSCRIPT:\n";
+        $message .= $transcription_data['transcript'] . "\n\n";
+        
+        if (!empty($transcription_data['chapters'])) {
+            $message .= "CHAPTERS:\n";
+            foreach ($transcription_data['chapters'] as $chapter) {
+                $message .= "- " . $chapter['title'] . " (" . $chapter['start_time'] . ")\n";
+            }
+            $message .= "\n";
+        }
+        
+        $message .= "Thank you for using AXiM Transcription Service!\n";
+        $message .= "Best regards,\nAXiM Systems";
+        
+        wp_mail($to, $subject, $message);
+    }
+
+    private function send_transcription_failure_email($order, $error_message) {
+        $to = $order['guest_email'];
+        $subject = 'AXiM Transcription Processing Issue - Order ' . $order['id'];
+        
+        $message = "Hello,\n\n";
+        $message .= "We encountered an issue processing your transcription.\n\n";
+        $message .= "Order ID: " . $order['id'] . "\n";
+        $message .= "Error: " . $error_message . "\n\n";
+        $message .= "Our team has been notified and will contact you shortly to resolve this issue.\n\n";
+        $message .= "If you have any questions, please contact support@aximsystems.com\n\n";
+        $message .= "Best regards,\nAXiM Systems";
+        
+        wp_mail($to, $subject, $message);
+    }
+
+    private function detect_audio_language($file) {
+        // Simple language detection based on file metadata or default to English
+        // In a production environment, you might want to use a more sophisticated detection method
+        return 'en';
+    }
+
+    public function check_transcription_status() {
+        // Get all processing orders
+        $processing_orders = $this->get_processing_orders_from_supabase();
+        
+        $noota = new Noota_API();
+        
+        foreach ($processing_orders as $order) {
+            if (!empty($order['noota_recording_id'])) {
+                try {
+                    $status = $noota->get_recording_status($order['noota_recording_id']);
+                    
+                    if ($status['status'] === 'completed' && $order['status'] !== 'completed') {
+                        $this->handle_transcription_completed($status);
+                    } elseif ($status['status'] === 'failed' && $order['status'] !== 'failed') {
+                        $this->handle_transcription_failed($status);
+                    }
+                } catch (Exception $e) {
+                    error_log('Error checking transcription status for order ' . $order['id'] . ': ' . $e->getMessage());
+                }
+            }
+        }
+    }
+
+    // Stripe payment methods (unchanged from previous version)
+    public function create_payment_intent() {
+        check_ajax_referer('axim-nonce', 'nonce');
+        
+        $amount = floatval($_POST['amount']) * 100;
+        $currency = sanitize_text_field($_POST['currency'] ?? 'usd');
+        $customer_email = sanitize_email($_POST['customer_email']);
+        $order_data = json_decode(stripslashes($_POST['order_data']), true);
+        
+        try {
+            $stripe_secret = get_option('axim_stripe_secret_key', '');
+            if (empty($stripe_secret)) {
+                throw new Exception('Stripe not configured');
+            }
+
+            require_once AXIM_PATH . 'includes/stripe-php/init.php';
+            \Stripe\Stripe::setApiKey($stripe_secret);
+
+            $customer = null;
+            try {
+                $customers = \Stripe\Customer::all([
+                    'email' => $customer_email,
+                    'limit' => 1
+                ]);
+                
+                if (count($customers->data) > 0) {
+                    $customer = $customers->data[0];
+                } else {
+                    $customer = \Stripe\Customer::create([
+                        'email' => $customer_email,
+                        'name' => $order_data['customerInfo']['name'] ?? '',
+                    ]);
+                }
+            } catch (Exception $e) {
+                error_log('Stripe customer error: ' . $e->getMessage());
+            }
+
+            $intent = \Stripe\PaymentIntent::create([
+                'amount' => $amount,
+                'currency' => $currency,
+                'customer' => $customer ? $customer->id : null,
+                'receipt_email' => $customer_email,
+                'metadata' => [
+                    'order_id' => $order_data['orderId'] ?? uniqid('axm_'),
+                    'plan_id' => $order_data['planId'] ?? '',
+                    'customer_name' => $order_data['customerInfo']['name'] ?? '',
+                    'duration' => $order_data['audioDuration'] ?? 0,
+                    'source' => 'axim_transcription_plugin'
+                ],
+                'description' => 'AXiM Transcription Service - ' . ($order_data['planId'] ?? 'Unknown Plan')
+            ]);
+
+            wp_send_json_success([
+                'client_secret' => $intent->client_secret,
+                'payment_intent_id' => $intent->id
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Stripe Payment Intent Error: ' . $e->getMessage());
+            wp_send_json_error('Payment initialization failed: ' . $e->getMessage());
+        }
+    }
+
+    public function confirm_payment() {
+        check_ajax_referer('axim-nonce', 'nonce');
+        
+        $payment_intent_id = sanitize_text_field($_POST['payment_intent_id']);
+        $order_data = json_decode(stripslashes($_POST['order_data']), true);
+        
+        try {
+            $stripe_secret = get_option('axim_stripe_secret_key', '');
+            if (empty($stripe_secret)) {
+                throw new Exception('Stripe not configured');
+            }
+
+            require_once AXIM_PATH . 'includes/stripe-php/init.php';
+            \Stripe\Stripe::setApiKey($stripe_secret);
+
+            $intent = \Stripe\PaymentIntent::retrieve($payment_intent_id);
+            
+            if ($intent->status === 'succeeded') {
+                $this->save_order_to_supabase($order_data, $intent);
+                
+                $this->track_event_internal('payment_success', [
+                    'amount' => $intent->amount / 100,
+                    'currency' => $intent->currency,
+                    'payment_intent_id' => $intent->id,
+                    'customer_email' => $order_data['customerInfo']['email']
+                ]);
+
+                wp_send_json_success([
+                    'status' => 'succeeded',
+                    'order_id' => $order_data['orderId'],
+                    'payment_intent_id' => $intent->id
+                ]);
+            } else {
+                wp_send_json_error('Payment not completed');
+            }
+
+        } catch (Exception $e) {
+            error_log('Payment confirmation error: ' . $e->getMessage());
+            wp_send_json_error('Payment confirmation failed: ' . $e->getMessage());
+        }
+    }
+
+    private function save_order_to_supabase($order_data, $payment_intent) {
+        $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
+        $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
+
+        $order_record = [
+            'id' => $order_data['orderId'],
+            'plan_id' => $order_data['planId'],
+            'customer_info' => $order_data['customerInfo'],
+            'guest_email' => $order_data['customerInfo']['email'],
+            'is_guest' => !isset($order_data['userId']),
+            'user_id' => $order_data['userId'] ?? null,
+            'duration' => $order_data['audioDuration'] ?? 0,
+            'add_ons' => $order_data['addOns'] ?? [],
+            'total_price' => $payment_intent->amount / 100,
+            'promo_code' => $order_data['promoCode'] ?? '',
+            'discount' => $order_data['discount'] ?? 0,
+            'payment_intent_id' => $payment_intent->id,
+            'payment_status' => 'paid',
+            'status' => 'awaiting_upload',
+            'transcription_provider' => get_option('axim_transcription_provider', 'noota'),
+            'created_at' => date('c'),
+            'updated_at' => date('c')
+        ];
+
+        $response = wp_remote_post(
+            $supabase_url . '/rest/v1/wp_orders_ax9m2k1',
+            [
+                'headers' => [
+                    'apikey' => $supabase_key,
+                    'Authorization' => 'Bearer ' . $supabase_key,
+                    'Content-Type' => 'application/json',
+                    'Prefer' => 'return=minimal'
+                ],
+                'body' => json_encode($order_record)
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            error_log('Supabase order save error: ' . $response->get_error_message());
+        }
+    }
+
+    private function get_order_from_supabase($order_id) {
+        $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
+        $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
+
+        $response = wp_remote_get(
+            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?id=eq.' . urlencode($order_id),
+            [
+                'headers' => [
+                    'apikey' => $supabase_key,
+                    'Authorization' => 'Bearer ' . $supabase_key,
+                    'Content-Type' => 'application/json'
+                ]
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            return null;
+        }
+
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        return !empty($data) ? $data[0] : null;
+    }
+
+    private function update_order_in_supabase($order_id, $updates) {
+        $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
+        $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
+
+        $updates['updated_at'] = date('c');
+
+        wp_remote_request(
+            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?id=eq.' . urlencode($order_id),
+            [
+                'method' => 'PATCH',
+                'headers' => [
+                    'apikey' => $supabase_key,
+                    'Authorization' => 'Bearer ' . $supabase_key,
+                    'Content-Type' => 'application/json'
+                ],
+                'body' => json_encode($updates)
+            ]
+        );
+    }
+
+    private function get_processing_orders_from_supabase() {
+        $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
+        $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
+
+        $response = wp_remote_get(
+            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?status=eq.processing',
+            [
+                'headers' => [
+                    'apikey' => $supabase_key,
+                    'Authorization' => 'Bearer ' . $supabase_key,
+                    'Content-Type' => 'application/json'
+                ]
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            return [];
+        }
+
+        return json_decode(wp_remote_retrieve_body($response), true) ?: [];
+    }
+
+    // Stripe webhook handler (unchanged)
+    public function handle_stripe_webhook() {
+        $webhook_secret = get_option('axim_stripe_webhook_secret', '');
+        
+        if (empty($webhook_secret)) {
+            http_response_code(400);
+            exit('Webhook secret not configured');
+        }
+
+        $payload = @file_get_contents('php://input');
+        $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+        try {
+            require_once AXIM_PATH . 'includes/stripe-php/init.php';
+            $event = \Stripe\Webhook::constructEvent($payload, $sig_header, $webhook_secret);
+
+            switch ($event['type']) {
+                case 'payment_intent.succeeded':
+                    $this->handle_payment_success($event['data']['object']);
+                    break;
+                case 'payment_intent.payment_failed':
+                    $this->handle_payment_failed($event['data']['object']);
+                    break;
+                default:
+                    error_log('Unhandled Stripe webhook event: ' . $event['type']);
+            }
+
+            http_response_code(200);
+            echo 'OK';
+
+        } catch (\UnexpectedValueException $e) {
+            error_log('Invalid Stripe webhook payload: ' . $e->getMessage());
+            http_response_code(400);
+            exit('Invalid payload');
+        } catch (\Stripe\Exception\SignatureVerificationException $e) {
+            error_log('Invalid Stripe webhook signature: ' . $e->getMessage());
+            http_response_code(400);
+            exit('Invalid signature');
+        }
+    }
+
+    private function handle_payment_success($payment_intent) {
+        $this->update_order_in_supabase($payment_intent->metadata->order_id, ['status' => 'awaiting_upload']);
+        $this->send_order_confirmation_email($payment_intent);
+        
+        $this->track_event_internal('webhook_payment_success', [
+            'payment_intent_id' => $payment_intent->id,
+            'order_id' => $payment_intent->metadata->order_id
+        ]);
+    }
+
+    private function handle_payment_failed($payment_intent) {
+        $this->update_order_in_supabase($payment_intent->metadata->order_id, ['status' => 'payment_failed']);
+        
+        $this->track_event_internal('webhook_payment_failed', [
+            'payment_intent_id' => $payment_intent->id,
+            'order_id' => $payment_intent->metadata->order_id
+        ]);
+    }
+
+    private function send_order_confirmation_email($payment_intent) {
+        $metadata = $payment_intent->metadata;
+        $to = $payment_intent->receipt_email;
+        $subject = 'AXiM Transcription Order Confirmation - ' . $metadata->order_id;
+        
+        $message = "Thank you for your order!\n\n";
+        $message .= "Order ID: " . $metadata->order_id . "\n";
+        $message .= "Plan: " . ucfirst($metadata->plan_id) . "\n";
+        $message .= "Duration: " . $metadata->duration . " minutes\n";
+        $message .= "Amount: $" . number_format($payment_intent->amount / 100, 2) . "\n\n";
+        $message .= "Next step: Please upload your audio file to begin processing.\n";
+        $message .= "You'll receive another email when your transcript is ready.\n\n";
+        $message .= "Best regards,\nAXiM Systems";
+
+        wp_mail($to, $subject, $message);
+    }
+
+    // Admin interface methods
     public function add_admin_menu() {
         add_menu_page(
             'AXiM Transcription',
@@ -148,6 +790,128 @@ class AXiMTranscription {
             'axim-analytics',
             array($this, 'render_analytics_page')
         );
+
+        add_submenu_page(
+            'axim-transcription',
+            'Settings',
+            'Settings',
+            'manage_options',
+            'axim-settings',
+            array($this, 'render_settings_page')
+        );
+    }
+
+    public function render_settings_page() {
+        if (isset($_POST['submit'])) {
+            update_option('axim_stripe_secret_key', sanitize_text_field($_POST['axim_stripe_secret_key']));
+            update_option('axim_stripe_webhook_secret', sanitize_text_field($_POST['axim_stripe_webhook_secret']));
+            update_option('axim_noota_api_key', sanitize_text_field($_POST['axim_noota_api_key']));
+            update_option('axim_noota_workspace_id', sanitize_text_field($_POST['axim_noota_workspace_id']));
+            update_option('axim_transcription_provider', sanitize_text_field($_POST['axim_transcription_provider']));
+            echo '<div class="notice notice-success"><p>Settings saved!</p></div>';
+        }
+
+        $stripe_secret = get_option('axim_stripe_secret_key', '');
+        $webhook_secret = get_option('axim_stripe_webhook_secret', '');
+        $noota_api_key = get_option('axim_noota_api_key', '');
+        $noota_workspace_id = get_option('axim_noota_workspace_id', '');
+        $transcription_provider = get_option('axim_transcription_provider', 'noota');
+        $stripe_webhook_url = home_url('/axim/webhook/stripe');
+        $noota_webhook_url = home_url('/axim/webhook/noota');
+        ?>
+        <div class="wrap axim-admin-wrap">
+            <h1>AXiM Settings v<?php echo AXIM_VERSION; ?></h1>
+            
+            <form method="post" action="">
+                <div class="axim-card">
+                    <h2>Transcription Provider</h2>
+                    <p>Choose your preferred transcription service provider.</p>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Provider</th>
+                            <td>
+                                <select name="axim_transcription_provider" class="regular-text">
+                                    <option value="noota" <?php selected($transcription_provider, 'noota'); ?>>Noota API</option>
+                                    <option value="openai" <?php selected($transcription_provider, 'openai'); ?>>OpenAI Whisper (Coming Soon)</option>
+                                    <option value="azure" <?php selected($transcription_provider, 'azure'); ?>>Azure Speech (Coming Soon)</option>
+                                </select>
+                                <p class="description">Select the transcription service to use for processing audio files</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="axim-card">
+                    <h2>Noota API Configuration</h2>
+                    <p>Configure your Noota API integration for transcription processing.</p>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">API Key</th>
+                            <td>
+                                <input type="password" name="axim_noota_api_key" 
+                                       value="<?php echo esc_attr($noota_api_key); ?>" 
+                                       class="regular-text" />
+                                <p class="description">Your Noota API key from your dashboard</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Workspace ID</th>
+                            <td>
+                                <input type="text" name="axim_noota_workspace_id" 
+                                       value="<?php echo esc_attr($noota_workspace_id); ?>" 
+                                       class="regular-text" />
+                                <p class="description">Your Noota workspace ID</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Webhook URL</th>
+                            <td>
+                                <code><?php echo esc_url($noota_webhook_url); ?></code>
+                                <p class="description">Add this URL to your Noota webhook settings</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="axim-card">
+                    <h2>Stripe Configuration</h2>
+                    <p>Configure your Stripe integration for payment processing.</p>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Stripe Secret Key</th>
+                            <td>
+                                <input type="password" name="axim_stripe_secret_key" 
+                                       value="<?php echo esc_attr($stripe_secret); ?>" 
+                                       class="regular-text" />
+                                <p class="description">Your Stripe secret key (starts with sk_)</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Webhook Secret</th>
+                            <td>
+                                <input type="password" name="axim_stripe_webhook_secret" 
+                                       value="<?php echo esc_attr($webhook_secret); ?>" 
+                                       class="regular-text" />
+                                <p class="description">Your Stripe webhook endpoint secret</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Webhook URL</th>
+                            <td>
+                                <code><?php echo esc_url($stripe_webhook_url); ?></code>
+                                <p class="description">Add this URL to your Stripe webhook endpoints</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <?php submit_button(); ?>
+            </form>
+        </div>
+        <?php
     }
 
     public function admin_enqueue_scripts($hook) {
@@ -199,11 +963,20 @@ class AXiMTranscription {
                     <h3>Revenue</h3>
                     <div class="axim-stat-value" id="total-revenue">$0.00</div>
                 </div>
+                <div class="axim-stat-card">
+                    <h3>Processing</h3>
+                    <div class="axim-stat-value" id="processing-orders">0</div>
+                </div>
             </div>
 
             <div class="axim-card">
-                <h2>Recent Activity</h2>
-                <div id="recent-activity">Loading...</div>
+                <h2>Recent Orders</h2>
+                <div id="recent-orders">Loading...</div>
+            </div>
+            
+            <div class="axim-card">
+                <h2>Transcription Status</h2>
+                <div id="transcription-status">Loading...</div>
             </div>
         </div>
         <?php
@@ -215,17 +988,20 @@ class AXiMTranscription {
             <h1>Analytics v<?php echo AXIM_VERSION; ?></h1>
             
             <div class="axim-card">
-                <h2>Event Analytics</h2>
+                <h2>Transcription Analytics</h2>
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
-                            <th>Event Type</th>
-                            <th>Count</th>
-                            <th>Last Occurrence</th>
+                            <th>Order ID</th>
+                            <th>Status</th>
+                            <th>Provider</th>
+                            <th>Duration</th>
+                            <th>Progress</th>
+                            <th>Created</th>
                         </tr>
                     </thead>
-                    <tbody id="analytics-table">
-                        <tr><td colspan="3">Loading...</td></tr>
+                    <tbody id="transcription-analytics-table">
+                        <tr><td colspan="6">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -251,18 +1027,43 @@ class AXiMTranscription {
         $event_data = json_decode(stripslashes($_POST['event_data']), true);
 
         try {
-            $this->send_event_to_supabase($event_type, $event_data);
+            $this->track_event_internal($event_type, $event_data);
             wp_send_json_success();
         } catch (Exception $e) {
             wp_send_json_error('Failed to track event: ' . $e->getMessage());
         }
     }
 
+    private function track_event_internal($event_type, $event_data) {
+        $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
+        $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
+
+        $data = array(
+            'event_type' => $event_type,
+            'event_data' => $event_data,
+            'ip_address' => $_SERVER['REMOTE_ADDR'],
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'page_url' => $_SERVER['HTTP_REFERER'] ?? '',
+            'session_id' => session_id() ?: uniqid()
+        );
+
+        wp_remote_post(
+            $supabase_url . '/rest/v1/wp_analytics_ax9m2k1',
+            array(
+                'headers' => array(
+                    'apikey' => $supabase_key,
+                    'Authorization' => 'Bearer ' . $supabase_key,
+                    'Content-Type' => 'application/json'
+                ),
+                'body' => json_encode($data)
+            )
+        );
+    }
+
     private function fetch_analytics_from_supabase() {
         $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
         $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
 
-        // Get analytics summary
         $analytics_response = wp_remote_get(
             $supabase_url . '/rest/v1/wp_analytics_ax9m2k1?select=event_type,created_at&order=created_at.desc&limit=100',
             array(
@@ -274,9 +1075,8 @@ class AXiMTranscription {
             )
         );
 
-        // Get orders summary
         $orders_response = wp_remote_get(
-            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?select=total_price,status,created_at&order=created_at.desc&limit=50',
+            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?select=total_price,status,transcription_provider,created_at,payment_status&order=created_at.desc&limit=100',
             array(
                 'headers' => array(
                     'apikey' => $supabase_key,
@@ -297,7 +1097,6 @@ class AXiMTranscription {
             $orders = json_decode(wp_remote_retrieve_body($orders_response), true);
         }
 
-        // Process data
         $event_counts = array();
         $total_views = 0;
         
@@ -313,45 +1112,31 @@ class AXiMTranscription {
         }
 
         $total_revenue = 0;
-        $total_orders = count($orders);
+        $total_orders = 0;
+        $paid_orders = 0;
+        $processing_orders = 0;
         
         foreach ($orders as $order) {
-            if ($order['status'] === 'completed') {
+            $total_orders++;
+            if ($order['payment_status'] === 'paid') {
+                $paid_orders++;
                 $total_revenue += floatval($order['total_price']);
+            }
+            if ($order['status'] === 'processing') {
+                $processing_orders++;
             }
         }
 
+        $conversion_rate = $total_views > 0 ? round(($paid_orders / $total_views) * 100, 2) : 0;
+
         return array(
             'views' => $total_views,
-            'orders' => $total_orders,
+            'orders' => $paid_orders,
+            'total_orders' => $total_orders,
+            'processing_orders' => $processing_orders,
             'revenue' => $total_revenue,
+            'conversion_rate' => $conversion_rate,
             'events' => $event_counts
-        );
-    }
-
-    private function send_event_to_supabase($event_type, $event_data) {
-        $supabase_url = 'https://ukrzgadtuqlkinsodfxn.supabase.co';
-        $supabase_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw';
-
-        $data = array(
-            'event_type' => $event_type,
-            'event_data' => $event_data,
-            'ip_address' => $_SERVER['REMOTE_ADDR'],
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'],
-            'page_url' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
-            'session_id' => session_id() ?: uniqid()
-        );
-
-        wp_remote_post(
-            $supabase_url . '/rest/v1/wp_analytics_ax9m2k1',
-            array(
-                'headers' => array(
-                    'apikey' => $supabase_key,
-                    'Authorization' => 'Bearer ' . $supabase_key,
-                    'Content-Type' => 'application/json'
-                ),
-                'body' => json_encode($data)
-            )
         );
     }
 }
@@ -365,9 +1150,20 @@ add_action('plugins_loaded', 'axim_init');
 // Activation hook
 register_activation_hook(__FILE__, 'axim_activation');
 function axim_activation() {
-    // Set plugin version
     update_option('axim_version', AXIM_VERSION);
+    flush_rewrite_rules();
     
-    // Clear any cached data
+    // Schedule transcription status checks
+    if (!wp_next_scheduled('axim_check_transcription_status')) {
+        wp_schedule_event(time(), 'hourly', 'axim_check_transcription_status');
+    }
+    
     wp_cache_flush();
+}
+
+// Deactivation hook
+register_deactivation_hook(__FILE__, 'axim_deactivation');
+function axim_deactivation() {
+    flush_rewrite_rules();
+    wp_clear_scheduled_hook('axim_check_transcription_status');
 }

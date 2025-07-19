@@ -1,199 +1,117 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useOrder } from '../context/OrderContext';
-import SafeIcon from '../common/SafeIcon';
-import * as FiIcons from 'react-icons/fi';
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { useOrder } from '../context/OrderContext'
+import AudioUpload from '../components/AudioUpload'
+import SafeIcon from '../common/SafeIcon'
+import * as FiIcons from 'react-icons/fi'
 
-const { FiUploadCloud, FiCheck, FiClock, FiFile } = FiIcons;
+const { FiArrowLeft, FiUploadCloud, FiCpu } = FiIcons
 
 function UploadPage() {
-  const navigate = useNavigate();
-  const { state, dispatch } = useOrder();
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const navigate = useNavigate()
+  const { state } = useOrder()
 
-  const handleUpload = async () => {
-    if (!state.audioFile) return;
-
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    try {
-      // Simulate file upload with progress
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 200);
-
-      // Wait for upload to complete
-      await new Promise(resolve => {
-        const checkProgress = () => {
-          if (uploadProgress >= 100) {
-            resolve();
-          } else {
-            setTimeout(checkProgress, 100);
-          }
-        };
-        checkProgress();
-      });
-
-      // Update order status
-      dispatch({ type: 'SET_STATUS', payload: 'processing' });
-      
-      // Navigate to success page
-      navigate('/success');
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Upload failed. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  const handleBack = () => {
+    navigate(-1)
+  }
 
   if (!state.orderId) {
-    navigate('/');
-    return null;
+    navigate('/')
+    return null
   }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <motion.div 
-        className="text-center mb-12"
+      <motion.div
+        className="mb-8"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
       >
-        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-          <SafeIcon icon={FiCheck} className="text-white text-2xl" />
+        <button
+          onClick={handleBack}
+          className="inline-flex items-center space-x-2 text-power-green hover:text-power-green hover:opacity-80 mb-6"
+        >
+          <SafeIcon icon={FiArrowLeft} />
+          <span>Back</span>
+        </button>
+        
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-power-purple rounded-full flex items-center justify-center mx-auto mb-6">
+            <SafeIcon icon={FiUploadCloud} className="text-axim-text-primary text-2xl" />
+          </div>
+          <h1 className="text-3xl font-bold text-axim-text-primary mb-4">
+            Upload Your Audio File
+          </h1>
+          <p className="text-axim-text-secondary text-lg">
+            Upload your audio file to begin AI-powered transcription with Noota
+          </p>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Payment Successful!
-        </h1>
-        <p className="text-gray-600 text-lg">
-          Now let's upload your audio file to start the transcription process.
-        </p>
       </motion.div>
 
       {/* Order Details */}
-      <motion.div 
-        className="bg-white rounded-2xl shadow-lg p-8 mb-8"
+      <motion.div
+        className="bg-axim-panel rounded-2xl shadow-lg p-8 mb-8 border border-axim-border"
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.2 }}
       >
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Details</h2>
-        
+        <h2 className="text-xl font-semibold text-axim-text-primary mb-6">Order Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-sm text-gray-600 mb-1">Order ID</p>
-            <p className="font-semibold text-gray-900">{state.orderId}</p>
+            <p className="text-sm text-axim-text-secondary mb-1">Order ID</p>
+            <p className="font-semibold text-axim-text-primary">{state.orderId}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-1">Plan</p>
-            <p className="font-semibold text-gray-900">{state.selectedPlan.name}</p>
+            <p className="text-sm text-axim-text-secondary mb-1">Plan</p>
+            <p className="font-semibold text-axim-text-primary">{state.selectedPlan.name}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-1">Expected Delivery</p>
-            <p className="font-semibold text-gray-900">
-              {state.selectedPlan.id === 'business' ? 'Within 48 hours' : 'Within 72 hours'}
-            </p>
+            <p className="text-sm text-axim-text-secondary mb-1">Expected Delivery</p>
+            <p className="font-semibold text-axim-text-primary">Within 30 minutes</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-1">Total Paid</p>
-            <p className="font-semibold text-green-600">${state.totalPrice.toFixed(2)}</p>
+            <p className="text-sm text-axim-text-secondary mb-1">Total Paid</p>
+            <p className="font-semibold text-power-green">${state.totalPrice?.toFixed(2)}</p>
           </div>
         </div>
       </motion.div>
 
       {/* File Upload Section */}
-      <motion.div 
-        className="bg-white rounded-2xl shadow-lg p-8"
+      <motion.div
+        className="bg-axim-panel rounded-2xl shadow-lg p-8 mb-8 border border-axim-border"
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.4 }}
       >
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Upload Your Audio File</h2>
-        
-        {/* File Info */}
-        <div className="bg-gray-50 rounded-xl p-6 mb-6">
-          <div className="flex items-center space-x-4">
-            <SafeIcon icon={FiFile} className="text-blue-500 text-2xl" />
-            <div>
-              <p className="font-semibold text-gray-900">{state.audioFile?.name}</p>
-              <p className="text-sm text-gray-600">
-                {state.audioDuration} minutes • {state.audioFile ? (state.audioFile.size / (1024 * 1024)).toFixed(2) : 0} MB
-              </p>
-            </div>
-          </div>
-        </div>
+        <AudioUpload />
+      </motion.div>
 
-        {/* Upload Progress */}
-        {isUploading && (
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Uploading...</span>
-              <span className="text-sm font-medium text-gray-700">{Math.round(uploadProgress)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <motion.div 
-                className="bg-primary-500 h-3 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${uploadProgress}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Upload Button */}
-        <motion.button
-          onClick={handleUpload}
-          disabled={isUploading}
-          className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-200 ${
-            isUploading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-primary-600 hover:bg-primary-700 text-white'
-          }`}
-          whileHover={!isUploading ? { scale: 1.02 } : {}}
-          whileTap={!isUploading ? { scale: 0.98 } : {}}
-        >
-          {isUploading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
-              <span>Uploading File...</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center space-x-2">
-              <SafeIcon icon={FiUploadCloud} />
-              <span>Start Upload & Processing</span>
-            </div>
-          )}
-        </motion.button>
-
-        {/* Processing Info */}
-        <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-          <div className="flex items-start space-x-3">
-            <SafeIcon icon={FiClock} className="text-blue-500 text-xl mt-1" />
-            <div>
-              <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Your file will be securely uploaded to our processing servers</li>
-                <li>• Our AI will begin transcribing your audio immediately</li>
-                <li>• You'll receive an email notification when processing is complete</li>
-                <li>• The final transcript will be delivered to {state.customerInfo.email}</li>
-              </ul>
-            </div>
+      {/* Processing Info */}
+      <motion.div
+        className="bg-power-purple bg-opacity-10 border border-power-purple border-opacity-30 rounded-xl p-6"
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.6 }}
+      >
+        <div className="flex items-start space-x-3">
+          <SafeIcon icon={FiCpu} className="text-power-purple text-xl mt-1" />
+          <div>
+            <h3 className="font-semibold text-power-purple mb-2">Powered by Noota AI</h3>
+            <ul className="text-sm text-axim-text-secondary space-y-1">
+              <li>• Advanced AI transcription with 99%+ accuracy</li>
+              <li>• Automatic speaker identification and separation</li>
+              <li>• Intelligent chapter creation and timestamps</li>
+              <li>• AI-generated summary and key insights</li>
+              <li>• Real-time processing status updates</li>
+              <li>• Secure file handling and GDPR compliance</li>
+            </ul>
           </div>
         </div>
       </motion.div>
     </div>
-  );
+  )
 }
 
-export default UploadPage;
+export default UploadPage
