@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AXiM Transcription Service
  * Plugin URI: https://aximsystems.com/
- * Description: Professional AI-powered transcription service with Noota API integration
- * Version: 1.4.0
+ * Description: Professional AI-powered transcription service with discount codes and Zapier integration
+ * Version: 1.5.0
  * Author: AXiM Systems
  * Author URI: https://aximsystems.com/
  * Text Domain: axim-transcription
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('AXIM_VERSION', '1.4.0');
+define('AXIM_VERSION', '1.5.0');
 define('AXIM_PATH', plugin_dir_path(__FILE__));
 define('AXIM_URL', plugin_dir_url(__FILE__));
 
@@ -47,19 +47,30 @@ class AXiMTranscription {
         add_action('wp_ajax_axim_upload_audio', array($this, 'upload_audio_to_noota'));
         add_action('wp_ajax_nopriv_axim_upload_audio', array($this, 'upload_audio_to_noota'));
         
+        // Discount code handlers
+        add_action('wp_ajax_axim_validate_discount', array($this, 'validate_discount_code'));
+        add_action('wp_ajax_nopriv_axim_validate_discount', array($this, 'validate_discount_code'));
+        add_action('wp_ajax_axim_apply_discount', array($this, 'apply_discount_code'));
+        add_action('wp_ajax_nopriv_axim_apply_discount', array($this, 'apply_discount_code'));
+        
         // Webhook handlers
         add_action('wp_ajax_axim_stripe_webhook', array($this, 'handle_stripe_webhook'));
         add_action('wp_ajax_nopriv_axim_stripe_webhook', array($this, 'handle_stripe_webhook'));
         add_action('wp_ajax_axim_noota_webhook', array($this, 'handle_noota_webhook'));
         add_action('wp_ajax_nopriv_axim_noota_webhook', array($this, 'handle_noota_webhook'));
+        add_action('wp_ajax_axim_zapier_webhook', array($this, 'handle_zapier_webhook'));
+        add_action('wp_ajax_nopriv_axim_zapier_webhook', array($this, 'handle_zapier_webhook'));
         
         add_action('init', array($this, 'add_webhook_endpoints'));
         
         // Scheduled tasks
         add_action('axim_check_transcription_status', array($this, 'check_transcription_status'));
+        add_action('axim_process_zapier_fallback', array($this, 'process_zapier_fallback'));
         
-        // Initialize Noota API client
+        // Initialize APIs
         require_once AXIM_PATH . 'includes/class-noota-api.php';
+        require_once AXIM_PATH . 'includes/class-discount-manager.php';
+        require_once AXIM_PATH . 'includes/class-zapier-integration.php';
     }
 
     public function add_webhook_endpoints() {
@@ -79,6 +90,14 @@ class AXiMTranscription {
         );
         add_rewrite_tag('%axim_noota_webhook%', '([^&]+)');
         
+        // Zapier webhook
+        add_rewrite_rule(
+            '^axim/webhook/zapier/?$',
+            'index.php?axim_zapier_webhook=1',
+            'top'
+        );
+        add_rewrite_tag('%axim_zapier_webhook%', '([^&]+)');
+        
         // Handle webhook requests
         if (get_query_var('axim_stripe_webhook')) {
             $this->handle_stripe_webhook();
@@ -87,6 +106,11 @@ class AXiMTranscription {
         
         if (get_query_var('axim_noota_webhook')) {
             $this->handle_noota_webhook();
+            exit;
+        }
+        
+        if (get_query_var('axim_zapier_webhook')) {
+            $this->handle_zapier_webhook();
             exit;
         }
     }
@@ -99,6 +123,9 @@ class AXiMTranscription {
         register_setting('axim_settings', 'axim_transcription_provider');
         register_setting('axim_settings', 'axim_supabase_url');
         register_setting('axim_settings', 'axim_supabase_key');
+        register_setting('axim_settings', 'axim_zapier_webhook_url');
+        register_setting('axim_settings', 'axim_zapier_fallback_enabled');
+        register_setting('axim_settings', 'axim_discount_codes_enabled');
     }
 
     public function enqueue_vite_assets() {
@@ -161,7 +188,8 @@ class AXiMTranscription {
                 'supabaseUrl' => 'https://ukrzgadtuqlkinsodfxn.supabase.co',
                 'supabaseAnonKey' => 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcnpnYWR0dXFsa2luc29kZnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjU5OTgsImV4cCI6MjA2ODAwMTk5OH0.KcAHbfXI6-83MGYo6AnTrr8OuDgqmgCCwpO4H91H1Bw',
                 'stripePublishableKey' => 'pk_live_51M9M9WJahsdipCJXf8NR7es7EnYBzk5vxNCKWW51H7TZdYdC4N0qMYATnHniWkN85iZc2lIMWh360fKuYGMFFUDt00A1wBVyPk',
-                'version' => AXIM_VERSION
+                'version' => AXIM_VERSION,
+                'discountCodesEnabled' => get_option('axim_discount_codes_enabled', true)
             )
         );
     }
@@ -186,6 +214,69 @@ class AXiMTranscription {
             esc_attr($attributes['theme']),
             esc_attr(AXIM_VERSION)
         );
+    }
+
+    // Discount Code Methods
+    public function validate_discount_code() {
+        check_ajax_referer('axim-nonce', 'nonce');
+        
+        $code = sanitize_text_field($_POST['code']);
+        $plan_id = sanitize_text_field($_POST['plan_id'] ?? '');
+        
+        try {
+            $discount_manager = new Discount_Manager();
+            $validation_result = $discount_manager->validate_code($code, $plan_id);
+            
+            if ($validation_result['valid']) {
+                wp_send_json_success([
+                    'valid' => true,
+                    'discount_percent' => $validation_result['discount_percent'],
+                    'message' => $validation_result['message']
+                ]);
+            } else {
+                wp_send_json_error([
+                    'valid' => false,
+                    'message' => $validation_result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            wp_send_json_error([
+                'valid' => false,
+                'message' => 'Error validating discount code: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function apply_discount_code() {
+        check_ajax_referer('axim-nonce', 'nonce');
+        
+        $code = sanitize_text_field($_POST['code']);
+        $order_id = sanitize_text_field($_POST['order_id']);
+        $original_amount = floatval($_POST['original_amount']);
+        
+        try {
+            $discount_manager = new Discount_Manager();
+            $result = $discount_manager->apply_discount($code, $order_id, $original_amount);
+            
+            if ($result['success']) {
+                wp_send_json_success([
+                    'discount_applied' => true,
+                    'discount_percent' => $result['discount_percent'],
+                    'discount_amount' => $result['discount_amount'],
+                    'final_amount' => $result['final_amount']
+                ]);
+            } else {
+                wp_send_json_error([
+                    'discount_applied' => false,
+                    'message' => $result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            wp_send_json_error([
+                'discount_applied' => false,
+                'message' => 'Error applying discount: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function upload_audio_to_noota() {
@@ -258,7 +349,50 @@ class AXiMTranscription {
             
         } catch (Exception $e) {
             error_log('Noota upload error: ' . $e->getMessage());
+            
+            // Trigger Zapier fallback if enabled
+            if (get_option('axim_zapier_fallback_enabled', false)) {
+                $this->trigger_zapier_fallback($order_id, $_FILES['audio_file'], $e->getMessage());
+            }
+            
             wp_send_json_error('Upload failed: ' . $e->getMessage());
+        }
+    }
+
+    private function trigger_zapier_fallback($order_id, $audio_file, $error_message) {
+        try {
+            $zapier_integration = new Zapier_Integration();
+            $zapier_integration->trigger_transcription_fallback($order_id, $audio_file, $error_message);
+        } catch (Exception $e) {
+            error_log('Zapier fallback error: ' . $e->getMessage());
+        }
+    }
+
+    public function handle_zapier_webhook() {
+        $payload = file_get_contents('php://input');
+        $data = json_decode($payload, true);
+        
+        if (!$data) {
+            http_response_code(400);
+            exit('Invalid JSON payload');
+        }
+        
+        try {
+            $zapier_integration = new Zapier_Integration();
+            $result = $zapier_integration->handle_webhook($data);
+            
+            if ($result['success']) {
+                http_response_code(200);
+                echo json_encode(['status' => 'success', 'message' => $result['message']]);
+            } else {
+                http_response_code(400);
+                echo json_encode(['status' => 'error', 'message' => $result['message']]);
+            }
+            
+        } catch (Exception $e) {
+            error_log('Zapier webhook error: ' . $e->getMessage());
+            http_response_code(500);
+            exit('Webhook processing failed');
         }
     }
 
@@ -337,6 +471,10 @@ class AXiMTranscription {
             $this->send_transcription_completion_email($order, $formatted_data);
         }
         
+        // Trigger Zapier automation for completed orders
+        $zapier_integration = new Zapier_Integration();
+        $zapier_integration->trigger_order_completed($order_id, $formatted_data);
+        
         // Track completion
         $this->track_event_internal('transcription_completed', [
             'order_id' => $order_id,
@@ -361,6 +499,12 @@ class AXiMTranscription {
             $order = $this->get_order_from_supabase($order_id);
             if ($order) {
                 $this->send_transcription_failure_email($order, $error_message);
+            }
+            
+            // Trigger Zapier fallback for failed transcriptions
+            if (get_option('axim_zapier_fallback_enabled', false)) {
+                $zapier_integration = new Zapier_Integration();
+                $zapier_integration->trigger_transcription_retry($order_id, $error_message);
             }
         }
         
@@ -481,7 +625,7 @@ class AXiMTranscription {
         }
     }
 
-    // Stripe payment methods (unchanged from previous version)
+    // Stripe payment methods with discount support
     public function create_payment_intent() {
         check_ajax_referer('axim-nonce', 'nonce');
         
@@ -528,6 +672,8 @@ class AXiMTranscription {
                     'plan_id' => $order_data['planId'] ?? '',
                     'customer_name' => $order_data['customerInfo']['name'] ?? '',
                     'duration' => $order_data['audioDuration'] ?? 0,
+                    'discount_code' => $order_data['discountCode'] ?? '',
+                    'discount_amount' => $order_data['discountAmount'] ?? 0,
                     'source' => 'axim_transcription_plugin'
                 ],
                 'description' => 'AXiM Transcription Service - ' . ($order_data['planId'] ?? 'Unknown Plan')
@@ -564,11 +710,17 @@ class AXiMTranscription {
             if ($intent->status === 'succeeded') {
                 $this->save_order_to_supabase($order_data, $intent);
                 
+                // Trigger Zapier automation for new orders
+                $zapier_integration = new Zapier_Integration();
+                $zapier_integration->trigger_new_order($order_data, $intent);
+                
                 $this->track_event_internal('payment_success', [
                     'amount' => $intent->amount / 100,
                     'currency' => $intent->currency,
                     'payment_intent_id' => $intent->id,
-                    'customer_email' => $order_data['customerInfo']['email']
+                    'customer_email' => $order_data['customerInfo']['email'],
+                    'discount_code' => $order_data['discountCode'] ?? '',
+                    'discount_amount' => $order_data['discountAmount'] ?? 0
                 ]);
 
                 wp_send_json_success([
@@ -601,6 +753,8 @@ class AXiMTranscription {
             'add_ons' => $order_data['addOns'] ?? [],
             'total_price' => $payment_intent->amount / 100,
             'promo_code' => $order_data['promoCode'] ?? '',
+            'discount_code' => $order_data['discountCode'] ?? '',
+            'discount_amount' => $order_data['discountAmount'] ?? 0,
             'discount' => $order_data['discount'] ?? 0,
             'payment_intent_id' => $payment_intent->id,
             'payment_status' => 'paid',
@@ -762,8 +916,13 @@ class AXiMTranscription {
         $message .= "Order ID: " . $metadata->order_id . "\n";
         $message .= "Plan: " . ucfirst($metadata->plan_id) . "\n";
         $message .= "Duration: " . $metadata->duration . " minutes\n";
-        $message .= "Amount: $" . number_format($payment_intent->amount / 100, 2) . "\n\n";
-        $message .= "Next step: Please upload your audio file to begin processing.\n";
+        $message .= "Amount: $" . number_format($payment_intent->amount / 100, 2) . "\n";
+        
+        if (!empty($metadata->discount_code)) {
+            $message .= "Discount Applied: " . $metadata->discount_code . " ($" . number_format($metadata->discount_amount / 100, 2) . " off)\n";
+        }
+        
+        $message .= "\nNext step: Please upload your audio file to begin processing.\n";
         $message .= "You'll receive another email when your transcript is ready.\n\n";
         $message .= "Best regards,\nAXiM Systems";
 
@@ -793,12 +952,123 @@ class AXiMTranscription {
 
         add_submenu_page(
             'axim-transcription',
+            'Discount Codes',
+            'Discount Codes',
+            'manage_options',
+            'axim-discounts',
+            array($this, 'render_discounts_page')
+        );
+
+        add_submenu_page(
+            'axim-transcription',
             'Settings',
             'Settings',
             'manage_options',
             'axim-settings',
             array($this, 'render_settings_page')
         );
+    }
+
+    public function render_discounts_page() {
+        if (isset($_POST['create_discount'])) {
+            $discount_manager = new Discount_Manager();
+            $result = $discount_manager->create_discount_code([
+                'code' => sanitize_text_field($_POST['discount_code']),
+                'discount_percent' => floatval($_POST['discount_percent']),
+                'expires_at' => sanitize_text_field($_POST['expires_at']),
+                'max_uses' => intval($_POST['max_uses']) ?: null
+            ]);
+            
+            if ($result['success']) {
+                echo '<div class="notice notice-success"><p>Discount code created successfully!</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>Error: ' . $result['message'] . '</p></div>';
+            }
+        }
+
+        $discount_manager = new Discount_Manager();
+        $discount_codes = $discount_manager->get_all_discount_codes();
+        ?>
+        <div class="wrap axim-admin-wrap">
+            <h1>Discount Codes Management v<?php echo AXIM_VERSION; ?></h1>
+            
+            <div class="axim-card">
+                <h2>Create New Discount Code</h2>
+                <form method="post" action="">
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Discount Code</th>
+                            <td>
+                                <input type="text" name="discount_code" class="regular-text" required 
+                                       placeholder="e.g., SAVE20" />
+                                <p class="description">Enter a unique discount code</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Discount Percentage</th>
+                            <td>
+                                <input type="number" name="discount_percent" class="regular-text" 
+                                       min="1" max="100" step="0.01" required />
+                                <p class="description">Percentage discount (1-100)</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Expiration Date</th>
+                            <td>
+                                <input type="datetime-local" name="expires_at" class="regular-text" />
+                                <p class="description">Leave empty for no expiration</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Maximum Uses</th>
+                            <td>
+                                <input type="number" name="max_uses" class="regular-text" min="1" />
+                                <p class="description">Leave empty for unlimited uses</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <?php submit_button('Create Discount Code', 'primary', 'create_discount'); ?>
+                </form>
+            </div>
+            
+            <div class="axim-card">
+                <h2>Existing Discount Codes</h2>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Discount</th>
+                            <th>Uses</th>
+                            <th>Max Uses</th>
+                            <th>Expires</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($discount_codes as $code): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($code['code']); ?></strong></td>
+                            <td><?php echo esc_html($code['discount_percent']); ?>%</td>
+                            <td><?php echo esc_html($code['uses']); ?></td>
+                            <td><?php echo $code['max_uses'] ? esc_html($code['max_uses']) : 'Unlimited'; ?></td>
+                            <td><?php echo $code['expires_at'] ? date('Y-m-d H:i', strtotime($code['expires_at'])) : 'Never'; ?></td>
+                            <td>
+                                <?php if ($code['is_active']): ?>
+                                    <span style="color: green;">Active</span>
+                                <?php else: ?>
+                                    <span style="color: red;">Inactive</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo date('Y-m-d', strtotime($code['created_at'])); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
     }
 
     public function render_settings_page() {
@@ -808,6 +1078,9 @@ class AXiMTranscription {
             update_option('axim_noota_api_key', sanitize_text_field($_POST['axim_noota_api_key']));
             update_option('axim_noota_workspace_id', sanitize_text_field($_POST['axim_noota_workspace_id']));
             update_option('axim_transcription_provider', sanitize_text_field($_POST['axim_transcription_provider']));
+            update_option('axim_zapier_webhook_url', sanitize_text_field($_POST['axim_zapier_webhook_url']));
+            update_option('axim_zapier_fallback_enabled', isset($_POST['axim_zapier_fallback_enabled']));
+            update_option('axim_discount_codes_enabled', isset($_POST['axim_discount_codes_enabled']));
             echo '<div class="notice notice-success"><p>Settings saved!</p></div>';
         }
 
@@ -816,13 +1089,44 @@ class AXiMTranscription {
         $noota_api_key = get_option('axim_noota_api_key', '');
         $noota_workspace_id = get_option('axim_noota_workspace_id', '');
         $transcription_provider = get_option('axim_transcription_provider', 'noota');
+        $zapier_webhook_url = get_option('axim_zapier_webhook_url', '');
+        $zapier_fallback_enabled = get_option('axim_zapier_fallback_enabled', false);
+        $discount_codes_enabled = get_option('axim_discount_codes_enabled', true);
+        
         $stripe_webhook_url = home_url('/axim/webhook/stripe');
         $noota_webhook_url = home_url('/axim/webhook/noota');
+        $internal_zapier_webhook_url = home_url('/axim/webhook/zapier');
         ?>
         <div class="wrap axim-admin-wrap">
             <h1>AXiM Settings v<?php echo AXIM_VERSION; ?></h1>
             
             <form method="post" action="">
+                <div class="axim-card">
+                    <h2>Feature Settings</h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Enable Discount Codes</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="axim_discount_codes_enabled" 
+                                           <?php checked($discount_codes_enabled); ?> />
+                                    Allow customers to use discount codes during checkout
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Enable Zapier Fallback</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="axim_zapier_fallback_enabled" 
+                                           <?php checked($zapier_fallback_enabled); ?> />
+                                    Use Zapier as backup when primary transcription fails
+                                </label>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
                 <div class="axim-card">
                     <h2>Transcription Provider</h2>
                     <p>Choose your preferred transcription service provider.</p>
@@ -870,6 +1174,30 @@ class AXiMTranscription {
                             <td>
                                 <code><?php echo esc_url($noota_webhook_url); ?></code>
                                 <p class="description">Add this URL to your Noota webhook settings</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="axim-card">
+                    <h2>Zapier Integration</h2>
+                    <p>Configure Zapier webhooks for automation and backup processing.</p>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">Zapier Webhook URL</th>
+                            <td>
+                                <input type="url" name="axim_zapier_webhook_url" 
+                                       value="<?php echo esc_attr($zapier_webhook_url); ?>" 
+                                       class="regular-text" />
+                                <p class="description">Your Zapier webhook URL for triggering automations</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Incoming Webhook URL</th>
+                            <td>
+                                <code><?php echo esc_url($internal_zapier_webhook_url); ?></code>
+                                <p class="description">Use this URL in Zapier to send data back to your site</p>
                             </td>
                         </tr>
                     </table>
@@ -975,8 +1303,13 @@ class AXiMTranscription {
             </div>
             
             <div class="axim-card">
-                <h2>Transcription Status</h2>
-                <div id="transcription-status">Loading...</div>
+                <h2>Discount Code Usage</h2>
+                <div id="discount-usage">Loading...</div>
+            </div>
+            
+            <div class="axim-card">
+                <h2>Zapier Automations</h2>
+                <div id="zapier-status">Loading...</div>
             </div>
         </div>
         <?php
@@ -996,12 +1329,13 @@ class AXiMTranscription {
                             <th>Status</th>
                             <th>Provider</th>
                             <th>Duration</th>
+                            <th>Discount</th>
                             <th>Progress</th>
                             <th>Created</th>
                         </tr>
                     </thead>
                     <tbody id="transcription-analytics-table">
-                        <tr><td colspan="6">Loading...</td></tr>
+                        <tr><td colspan="7">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1076,7 +1410,7 @@ class AXiMTranscription {
         );
 
         $orders_response = wp_remote_get(
-            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?select=total_price,status,transcription_provider,created_at,payment_status&order=created_at.desc&limit=100',
+            $supabase_url . '/rest/v1/wp_orders_ax9m2k1?select=total_price,status,transcription_provider,created_at,payment_status,discount_code,discount_amount&order=created_at.desc&limit=100',
             array(
                 'headers' => array(
                     'apikey' => $supabase_key,
@@ -1115,12 +1449,22 @@ class AXiMTranscription {
         $total_orders = 0;
         $paid_orders = 0;
         $processing_orders = 0;
+        $total_discount_amount = 0;
+        $discount_code_usage = array();
         
         foreach ($orders as $order) {
             $total_orders++;
             if ($order['payment_status'] === 'paid') {
                 $paid_orders++;
                 $total_revenue += floatval($order['total_price']);
+                
+                if (!empty($order['discount_code'])) {
+                    $total_discount_amount += floatval($order['discount_amount']);
+                    if (!isset($discount_code_usage[$order['discount_code']])) {
+                        $discount_code_usage[$order['discount_code']] = 0;
+                    }
+                    $discount_code_usage[$order['discount_code']]++;
+                }
             }
             if ($order['status'] === 'processing') {
                 $processing_orders++;
@@ -1136,6 +1480,8 @@ class AXiMTranscription {
             'processing_orders' => $processing_orders,
             'revenue' => $total_revenue,
             'conversion_rate' => $conversion_rate,
+            'total_discount_amount' => $total_discount_amount,
+            'discount_code_usage' => $discount_code_usage,
             'events' => $event_counts
         );
     }
@@ -1158,6 +1504,11 @@ function axim_activation() {
         wp_schedule_event(time(), 'hourly', 'axim_check_transcription_status');
     }
     
+    // Schedule Zapier fallback processing
+    if (!wp_next_scheduled('axim_process_zapier_fallback')) {
+        wp_schedule_event(time(), 'every_five_minutes', 'axim_process_zapier_fallback');
+    }
+    
     wp_cache_flush();
 }
 
@@ -1166,4 +1517,15 @@ register_deactivation_hook(__FILE__, 'axim_deactivation');
 function axim_deactivation() {
     flush_rewrite_rules();
     wp_clear_scheduled_hook('axim_check_transcription_status');
+    wp_clear_scheduled_hook('axim_process_zapier_fallback');
+}
+
+// Add custom cron schedule
+add_filter('cron_schedules', 'axim_custom_cron_schedules');
+function axim_custom_cron_schedules($schedules) {
+    $schedules['every_five_minutes'] = array(
+        'interval' => 300,
+        'display' => __('Every 5 Minutes')
+    );
+    return $schedules;
 }
